@@ -1,0 +1,157 @@
+/* تم مشترک «داشبورد عملیات» برای پنل‌های استعلام و الحاقیه — همان زبان طراحی تاریخچه‌خان (شیشه‌ای، آبی، روشن/تاریک)
+   تم را شل بالای صفحه با data-theme روی <html> تعیین می‌کند. */
+:root {
+  --g-surface: rgba(255,255,255,.72);
+  --g-tint: rgba(217,236,255,.55);
+  --g-ink: #0F1B33;
+  --g-ink-soft: rgba(15,27,51,.68);
+  --g-ink-faint: rgba(15,27,51,.46);
+  --g-line: rgba(23,169,255,.32);
+  --g-accent: #17A9FF;
+  --g-accent-strong: #0D6FCB;
+  --g-accent-soft: rgba(23,169,255,.20);
+  --g-row-alt: rgba(255,255,255,.35);
+  --g-row-hover: rgba(23,169,255,.12);
+  --g-danger: #E0453F;  --g-danger-soft: rgba(224,69,63,.16);
+  --g-success: #1FA971; --g-success-soft: rgba(31,169,113,.16);
+  --g-amber: #B96A0C;   --g-amber-soft: rgba(224,138,23,.16);
+  --g-shadow: 0 8px 28px rgba(15,72,150,.14), inset 0 1px 0 rgba(255,255,255,.6);
+  --g-shadow-float: 0 24px 55px -14px rgba(15,72,150,.22), inset 0 1px 0 rgba(255,255,255,.7);
+  --g-btn: linear-gradient(135deg, rgba(23,169,255,.82) 0%, rgba(22,86,245,.82) 100%);
+
+  /* پنل استعلام */
+  --primary: rgb(28,128,250); --primary-dark: var(--g-accent-strong); --primary-light: var(--g-row-hover);
+  --bg: transparent; --card: var(--g-surface); --border: var(--g-line);
+  --text: var(--g-ink); --text-muted: var(--g-ink-soft);
+  --damage: var(--g-danger); --damage-bg: var(--g-danger-soft);
+  --endorse: var(--g-amber); --endorse-bg: var(--g-amber-soft);
+  /* پنل الحاقیه */
+  --navy: var(--g-accent-strong); --navy-dark: #0a4f99; --navy-soft: #1656F5; --navy-pale: var(--g-accent-soft);
+  --muted: var(--g-ink-soft);
+  --danger: var(--g-danger); --danger-bg: var(--g-danger-soft);
+  --success: var(--g-success); --success-bg: var(--g-success-soft);
+  --warn: var(--g-amber); --warn-bg: var(--g-amber-soft);
+}
+html[data-theme="dark"] {
+  --g-surface: rgba(255,255,255,.07);
+  --g-tint: rgba(255,255,255,.04);
+  --g-ink: #EAF0FB;
+  --g-ink-soft: rgba(234,240,251,.68);
+  --g-ink-faint: rgba(234,240,251,.44);
+  --g-line: rgba(255,255,255,.14);
+  --g-accent-strong: #3AA0FF;
+  --g-accent-soft: rgba(23,169,255,.22);
+  --g-row-alt: rgba(255,255,255,.03);
+  --g-row-hover: rgba(23,169,255,.14);
+  --g-danger: #FF6B64;  --g-danger-soft: rgba(255,107,100,.18);
+  --g-success: #34C98C; --g-success-soft: rgba(52,201,140,.18);
+  --g-amber: #F2A93B;   --g-amber-soft: rgba(242,169,59,.18);
+  --g-shadow: 0 8px 32px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.08);
+  --g-shadow-float: 0 24px 60px -16px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.1);
+  --navy-dark: #2b86e0;
+}
+
+/* ---------- پس‌زمینه‌ی گرادیانی ثابت ---------- */
+html { background: #0c1226; }
+body { background: transparent !important; color: var(--g-ink); }
+html::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(620px 520px at 12% -8%, rgba(23,169,255,.55), transparent 62%),
+    radial-gradient(680px 540px at 106% 6%, rgba(124,92,224,.4), transparent 62%),
+    radial-gradient(700px 560px at 88% 102%, rgba(255,105,170,.32), transparent 62%),
+    radial-gradient(640px 520px at 4% 104%, rgba(31,169,113,.3), transparent 62%),
+    linear-gradient(160deg, #CDE8FF 0%, #EAF4FE 45%, #FFFFFF 100%);
+}
+html[data-theme="dark"]::before {
+  background:
+    radial-gradient(620px 520px at 12% -8%, rgba(23,169,255,.32), transparent 60%),
+    radial-gradient(680px 540px at 106% 6%, rgba(76,141,255,.28), transparent 60%),
+    radial-gradient(700px 560px at 88% 102%, rgba(156,135,240,.26), transparent 60%),
+    radial-gradient(640px 520px at 4% 104%, rgba(52,201,140,.2), transparent 60%),
+    linear-gradient(135deg, #05070f 0%, #060a16 55%, #04070d 100%);
+}
+body::before { display: none !important; }   /* هاله‌ی کم‌رنگ قدیمی پنل الحاقیه */
+
+/* ---------- کادرهای شیشه‌ای ---------- */
+.search-box, .table-wrap, .panel-card, .auth-card, .page-header {
+  background: var(--g-surface) !important; color: var(--g-ink);
+  -webkit-backdrop-filter: blur(18px) saturate(180%); backdrop-filter: blur(18px) saturate(180%);
+  border: 1px solid var(--g-line) !important; box-shadow: var(--g-shadow) !important;
+}
+.search-box, .panel-card, .auth-card { border-radius: 20px !important; }
+.table-wrap { border-radius: 14px !important; }
+.auth-wrap { background: transparent !important; }
+.auth-card { box-shadow: var(--g-shadow-float) !important; }
+
+/* ---------- فیلدها ---------- */
+select, input, input[type=text], .auth-field input {
+  background-color: var(--g-tint) !important; color: var(--g-ink) !important;
+  border: 1.5px solid var(--g-line) !important; border-radius: 9px !important;
+  -webkit-backdrop-filter: blur(12px) saturate(160%); backdrop-filter: blur(12px) saturate(160%);
+  box-shadow: inset 0 1px 4px rgba(15,72,150,.10);
+}
+select:focus, input:focus, input[type=text]:focus, .auth-field input:focus {
+  outline: none !important; border-color: var(--g-accent) !important; background-color: var(--g-surface) !important;
+  box-shadow: 0 0 0 4px var(--g-accent-soft) !important;
+}
+input::placeholder { color: var(--g-ink-faint); }
+select option { color: var(--g-ink); background: #fff; }
+html[data-theme="dark"] select option { background: #141b2e; }
+label, .field label, .auth-field label { color: var(--g-ink-soft) !important; }
+input:-webkit-autofill { -webkit-text-fill-color: var(--g-ink) !important; -webkit-box-shadow: 0 0 0 1000px rgba(217,236,255,.9) inset !important; }
+html[data-theme="dark"] input:-webkit-autofill { -webkit-box-shadow: 0 0 0 1000px #141b2e inset !important; }
+
+/* ---------- دکمه‌ها ---------- */
+.search-box button:not(.copy-btn), .auth-submit, button.primary {
+  background: var(--g-btn) !important; color: #fff !important;
+  border: 1px solid rgba(255,255,255,.45) !important; border-radius: 9px !important;
+  box-shadow: 0 10px 24px -10px rgba(22,86,245,.55), inset 0 1px 0 rgba(255,255,255,.5) !important;
+  transition: transform .15s, filter .15s;
+}
+.search-box button:not(.copy-btn):hover:not(:disabled), .auth-submit:hover:not(:disabled), button.primary:hover:not(:disabled) { filter: brightness(1.06); transform: translateY(-1px); }
+button:disabled, .auth-submit:disabled, button.primary:disabled { background: var(--g-ink-faint) !important; box-shadow: none !important; }
+.load-more-btn { background: var(--g-surface) !important; color: var(--g-accent-strong) !important; border: 1.5px solid var(--g-accent) !important; border-radius: 9px !important; }
+.load-more-btn:hover:not(:disabled) { background: var(--g-accent-soft) !important; color: var(--g-accent-strong) !important; }
+.btn-sm { background: var(--g-tint) !important; color: var(--g-ink) !important; border-color: var(--g-line) !important; }
+.btn-sm.view { color: var(--g-accent-strong) !important; }
+.btn-sm:hover { background: var(--g-accent-soft) !important; }
+.copy-btn:hover { background: var(--g-accent-soft) !important; color: var(--g-accent-strong) !important; }
+
+/* ---------- عنوان‌ها و متن‌ها ---------- */
+h1 { color: var(--g-ink) !important; }
+.panel-title, .auth-card h1, .page-header h1 { color: var(--g-ink) !important; }
+.panel-sub, .auth-card p, .page-header p, .muted, .empty-note, .user-email, .file-name { color: var(--g-ink-soft) !important; }
+.site-footer, .app-footer { color: var(--g-ink-faint) !important; }
+.strong { color: var(--g-accent-strong) !important; }
+.field-line .field-label { color: var(--g-ink-soft) !important; }
+.field-line .field-value { color: var(--g-ink) !important; }
+.status { color: var(--g-ink-soft); }
+.status.loading { color: var(--g-accent-strong) !important; }
+.status.error { color: var(--g-danger) !important; }
+.status.info, .auth-status.info { background: var(--g-accent-soft) !important; color: var(--g-accent-strong) !important; }
+
+/* ---------- جدول استعلام ---------- */
+table.policy-table thead th { background: rgb(28,128,250) !important; color: #fff !important; }
+table.policy-table td { border-bottom-color: var(--g-line) !important; color: var(--g-ink); }
+tr.policy-row td { background: transparent !important; }
+tr.policy-row:nth-child(even) td { background: var(--g-row-alt) !important; }
+tr.policy-row:hover td { background: var(--g-row-hover) !important; }
+tr.damage-row td { background: var(--g-danger-soft) !important; color: var(--g-danger) !important; }
+tr.endorsement-row td { background: var(--g-amber-soft) !important; color: var(--g-amber) !important; }
+html[data-theme="dark"] .company-logo { background: rgba(255,255,255,.92); border-radius: 8px; padding: 2px; }
+
+/* ---------- پنل الحاقیه ---------- */
+.page-header { min-height: 0 !important; padding: 16px 22px !important; border-radius: 20px !important; }
+.page-header::before { background: var(--g-accent-soft) !important; }
+.page-header-badge { background: var(--g-accent-soft) !important; border: 1px solid var(--g-line) !important; }
+.user-role-pill { background: var(--g-accent-soft) !important; color: var(--g-accent-strong) !important; border: 1px solid var(--g-line); }
+.logout-btn { color: var(--g-danger) !important; background: var(--g-surface) !important; border-color: var(--g-line) !important; }
+.panel-card::before { background: linear-gradient(#17A9FF, #1656F5) !important; }
+.card-num, .file-icon, .auth-badge { background: var(--g-accent-soft) !important; color: var(--g-accent-strong) !important; }
+.file-item { background: var(--g-tint) !important; border-color: var(--g-line) !important; }
+.file-preview { border-top-color: var(--g-line) !important; background: #fff !important; }
+.notice { background: var(--g-amber-soft) !important; color: var(--g-amber) !important; }
+.status.success { background: var(--g-success-soft) !important; color: var(--g-success) !important; }
+.status.empty { background: var(--g-amber-soft) !important; color: var(--g-amber) !important; }
+html[data-theme="dark"] .corner-illustration { filter: drop-shadow(0 12px 13px rgba(0,0,0,.4)); }
