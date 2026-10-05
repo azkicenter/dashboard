@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<script src="../../config.js"></script>
+<title>استعلام البرز (سنهاب)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100..900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #0f5fa6;
+    --primary-dark: #0a4276;
+    --primary-light: #e8f1fa;
+    --bg: #f2f6fa;
+    --card: #ffffff;
+    --border: #dbe4ec;
+    --text: #1f2937;
+    --text-muted: #6b7280;
+    --damage: #b91c1c;
+    --damage-bg: #fef2f2;
+    --endorse: #92400e;
+    --endorse-bg: #fffbeb;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Vazirmatn', Tahoma, Arial, sans-serif;
+    background: var(--bg);
+    margin: 0;
+    padding: 20px;
+    color: var(--text);
+    font-size: 14px;
+  }
+  .container { max-width: 1650px; margin: 0 auto; }
+  h1 {
+    font-size: 1.25rem;
+    margin: 0 0 18px;
+    color: var(--primary-dark);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .search-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 2px rgba(15, 95, 166, 0.06);
+  }
+  .field { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 180px; }
+  label { font-size: 0.8rem; color: var(--text-muted); }
+  select, input {
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    background: #fff;
+  }
+  select:focus, input:focus { outline: 2px solid var(--primary); outline-offset: 1px; }
+  button {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 7px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 600;
+  }
+  button:hover { background: var(--primary-dark); }
+  button:disabled { background: #9ca3af; cursor: not-allowed; }
+  .status { margin: 8px 2px; font-size: 0.85rem; color: var(--text-muted); }
+  .status.error { color: var(--damage); }
+  .status.loading { color: var(--primary); }
+  .empty-note { color: var(--text-muted); font-size: 0.85rem; padding: 20px; text-align: center; }
+  .load-more-wrap {
+    display: flex;
+    justify-content: center;
+    margin-top: 16px;
+  }
+  .load-more-btn {
+    background: var(--card);
+    color: var(--primary);
+    border: 1.5px solid var(--primary);
+    padding: 10px 26px;
+    border-radius: 7px;
+    font-size: 0.88rem;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 600;
+    transition: background 0.15s, color 0.15s;
+  }
+  .load-more-btn:hover { background: var(--primary); color: #fff; }
+  .load-more-btn:disabled { border-color: #9ca3af; color: #9ca3af; cursor: not-allowed; background: var(--card); }
+  .table-wrap {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    box-shadow: 0 1px 2px rgba(15, 95, 166, 0.06);
+  }
+  table.policy-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+  }
+  table.policy-table thead th {
+    background: var(--primary);
+    color: #fff;
+    font-weight: 600;
+    padding: 9px 8px;
+    text-align: right;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+  }
+  table.policy-table td {
+    padding: 8px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+    text-align: right;
+  }
+  tr.policy-row:hover td { background: var(--primary-light); }
+  tr.policy-row td { background: #fff; }
+  tr.policy-row:nth-child(even) td { background: #fafcfe; }
+  .company-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .company-logo {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    background: transparent;
+    flex-shrink: 0;
+  }
+  .muted { color: var(--text-muted); font-size: 0.72rem; }
+  .owner-line { font-size: 0.66rem; margin-top: 1px; }
+  .strong { font-weight: 700; color: var(--primary-dark); }
+  .num { font-family: inherit; direction: ltr; unicode-bidi: plaintext; text-align: right; }
+
+  /* ========== ردیف‌های فیلد با دکمه‌ی کپی ========== */
+  .field-line {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+  }
+  .field-line.field-line--inline { display: inline-flex; }
+  .field-line .field-label { color: #52606d; font-weight: 600; flex-shrink: 0; }
+  .field-line .field-value {
+    font-family: inherit;
+    direction: ltr;
+    unicode-bidi: plaintext;
+    color: var(--text);
+    font-weight: 600;
+  }
+  .copy-btn {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    padding: 2px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    border-radius: 5px;
+    flex-shrink: 0;
+    transition: background 0.15s, color 0.15s;
+  }
+  .copy-btn:hover { background: var(--primary-light); color: var(--primary); }
+  .copy-btn svg { width: 13px; height: 13px; pointer-events: none; }
+  .copy-btn.copied { color: #15803d; }
+  .copy-btn.copied:hover { background: #ecfdf5; }
+
+  /* ========== پلاک گرافیکی ========== */
+  .plate-img {
+    position: relative;
+    width: 160px;
+    height: 35.66px;
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+    direction: ltr;
+    flex-shrink: 0;
+    overflow: hidden; /* هیچ متنی از داخل کادر پلاک بیرون نزند */
+  }
+  .plate-img > div {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: #111;
+    line-height: 1;
+  }
+
+  /* --- پلاک ملی --- */
+  .plate-national {
+    background-image: url('plates/national.png');
+  }
+  .plate-national .plate-main-text {
+    left: 12%;
+    width: 63%;
+    top: 6%;
+    height: 88%;
+    font-size: 0.95rem;
+    letter-spacing: 1px;
+    gap: 3px;                 /* فاصله بین بخش‌ها */
+    direction: ltr;
+    unicode-bidi: isolate;
+  }
+  .plate-national .plate-main-text span {
+    display: inline-block;
+    direction: ltr;
+    unicode-bidi: isolate;
+  }
+  .plate-national .plate-serial-text {
+    left: 78%;
+    width: 20%;
+    top: 6%;
+    height: 88%;
+    font-size: 0.8rem;
+  }
+
+  /* --- پلاک منطقه آزاد --- */
+  .plate-freezone {
+    background-image: url('plates/freezone.jpg');
+  }
+  .plate-freezone .fz-serial {
+    left: 0%;
+    width: 36%;
+    top: 3%;
+    height: 94%;
+    font-size: 1.1rem;
+    color: #fff;
+  }
+  .plate-freezone .fz-main {
+    left: 37%;
+    width: 61%;
+    top: 3%;
+    height: 94%;
+    font-size: 1.15rem;
+    letter-spacing: 1px;
+  }
+
+  /* --- پلاک موتور ---
+     پلاک موتورسیکلت برخلاف پلاک خودرو، تقریباً مربع است؛ اگر همان کادر
+     کشیده‌ی 160×35.66 پلاک خودرو را برایش استفاده کنیم، عکسِ پلاک (که با
+     background-size: 100% 100% کشیده می‌شود) به‌صورت افقی له و خراب
+     می‌شود. برای همین برای موتور یک کادر مستقل و متناسب با نسبت واقعیِ
+     پلاک موتور تعریف شده و به‌جای کشیدن عکس (100% 100%)، از contain
+     استفاده شده تا عکس هرگز کش نیاید / خراب نشود؛ overflow:hidden هم در
+     .plate-img تضمین می‌کند که متنِ شماره از کادر پلاک بیرون نزند. */
+  .plate-moto {
+    background-image: url('plates/motorcycle.png');
+    background-size: contain;
+    background-position: center;
+    width: 100px;
+    height: 84px;
+  }
+  .plate-moto .mc-serial {
+    left: 24%;
+    width: 72%;
+    top: 16%;
+    height: 34%;
+    font-size: 0.8rem;
+  }
+  .plate-moto .mc-main {
+    left: 24%;
+    width: 72%;
+    top: 50%;
+    height: 40%;
+    font-size: 0.95rem;
+    letter-spacing: 1px;
+  }
+
+  tr.sub-row td {
+    padding: 6px 10px;
+    font-size: 0.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+  tr.damage-row td { background: var(--damage-bg); color: var(--damage); }
+  tr.endorsement-row td { background: var(--endorse-bg); color: var(--endorse); }
+  .endorsement-change-line { margin-top: 4px; font-size: 0.85em; opacity: 0.85; }
+  .sub-label { font-weight: 700; margin-left: 4px; }
+
+  .print-title { display: none; }
+  .app-footer {
+    text-align: center;
+    margin-top: 24px;
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    opacity: 0.6;
+  }
+
+  /* ========== حالت چاپ / PDF ========== */
+  @media print {
+    body { background: #fff; padding: 0; font-size: 11px; }
+    .search-box, #status, .app-footer, button { display: none !important; }
+    .container { max-width: 100%; }
+    h1 { display: none; }
+    .print-title {
+      display: block;
+      font-size: 1rem;
+      margin: 0 0 10px;
+      color: #000;
+      text-align: center;
+    }
+    .table-wrap {
+      border: none;
+      box-shadow: none;
+      border-radius: 0;
+      overflow: visible;
+    }
+    table.policy-table { font-size: 9.5px; }
+    table.policy-table thead th {
+      background: var(--primary) !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+      position: static;
+    }
+    tr.policy-row, tr.sub-row { break-inside: avoid; }
+    thead { display: table-header-group; }
+    tr.damage-row td, tr.endorsement-row td {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    @page {
+      size: A4 landscape;
+      margin: 10mm;
+    }
+  }
+</style>
+<script>try{document.documentElement.setAttribute("data-theme",localStorage.getItem("tarikhcheTheme")==="dark"?"dark":"light")}catch(e){}</script>
+<link rel="stylesheet" href="../theme.css">
+</head>
+<body>
+<div class="container">
+  <h1>استعلام البرز (سنهاب)</h1>
+  <div class="search-box">
+    <div class="field">
+      <label>نوع جستجو</label>
+      <select id="searchType">
+        <option value="EngineNumber">شماره موتور</option>
+        <option value="ChassisNumber">شماره شاسی</option>
+        <option value="ChassisAndEngine">شاسی و موتور</option>
+        <option value="VIN">VIN</option>
+        <option value="PrintNumber">شماره بیمه نامه</option>
+        <option value="UniqueId">کد یکتا</option>
+        <option value="NationalPlate">پلاک ملی</option>
+        <option value="NonNationalPlate">پلاک غیر ملی</option>
+        <option value="MotorcyclePlate">پلاک موتورسیکلت</option>
+      </select>
+    </div>
+
+    <!-- حالت پیش‌فرض: یک فیلد متنی ساده (شماره موتور/شاسی/VIN/کد یکتا/...) —
+         placeholder اینجا ثابت نیست، با تغییرِ نوعِ جستجو توسطِ جاوااسکریپت
+         (SINGLE_FIELD_PLACEHOLDERS پایینِ فایل) به‌روز می‌شود. -->
+    <div class="field" id="singleFieldGroup">
+      <label>مقدار جستجو</label>
+      <input id="searchValue" type="text" placeholder="مثلاً M159682759" />
+    </div>
+
+    <!-- شاسی و موتور: شماره شاسی + شماره موتور (دو فیلد جدا) -->
+    <div class="field" id="chassisEngineGroup" style="display:none;">
+      <label>شماره شاسی</label>
+      <input id="ceChassisNumber" type="text" placeholder="شماره شاسی" />
+    </div>
+    <div class="field" id="chassisEngineGroup2" style="display:none;">
+      <label>شماره موتور</label>
+      <input id="ceEngineNumber" type="text" placeholder="شماره موتور" />
+    </div>
+
+    <!-- پلاک ملی: دقیقاً همون ۴ فیلدی که سایت اصلی می‌خواد (به ترتیب
+         راست‌به‌چپ مثل خودِ پلاک: ایران/کدشهر، سه رقم راست، حرف، دو رقم چپ) -->
+    <div class="field" id="nationalPlateGroup" style="display:none; min-width:110px;">
+      <label>ایران (کد شهر)</label>
+      <input id="platePartCityCode" type="text" maxlength="2" placeholder="مثلاً 11" />
+    </div>
+    <div class="field" id="nationalPlateGroup2" style="display:none; min-width:110px;">
+      <label>سه رقم راست</label>
+      <input id="platePartRight3" type="text" maxlength="3" placeholder="مثلاً 123" />
+    </div>
+    <div class="field" id="nationalPlateGroup3" style="display:none; min-width:90px;">
+      <label>حرف</label>
+      <select id="platePartLetter">
+        <option value="" selected>حرف</option>
+        <option value="ب">ب</option>
+        <option value="پ">پ</option>
+        <option value="ت">ت</option>
+        <option value="ث">ث</option>
+        <option value="ج">ج</option>
+        <option value="د">د</option>
+        <option value="ز">ز</option>
+        <option value="ژ">ژ</option>
+        <option value="س">س</option>
+        <option value="ش">ش</option>
+        <option value="ص">ص</option>
+        <option value="ط">ط</option>
+        <option value="ع">ع</option>
+        <option value="ف">ف</option>
+        <option value="ق">ق</option>
+        <option value="ک">ک</option>
+        <option value="گ">گ</option>
+        <option value="ل">ل</option>
+        <option value="م">م</option>
+        <option value="ن">ن</option>
+        <option value="و">و</option>
+        <option value="ه">ه</option>
+        <option value="ی">ی</option>
+      </select>
+    </div>
+    <div class="field" id="nationalPlateGroup4" style="display:none; min-width:110px;">
+      <label>دو رقم چپ</label>
+      <input id="platePartLeft2" type="text" maxlength="2" placeholder="مثلاً 45" />
+    </div>
+
+    <!-- پلاک موتورسیکلت: شماره پلاک + سریال پلاک -->
+    <div class="field" id="motoPlateGroup" style="display:none;">
+      <label>شماره پلاک</label>
+      <input id="platePartMotoNumber" type="text" placeholder="شماره پلاک" />
+    </div>
+    <div class="field" id="motoPlateGroup2" style="display:none;">
+      <label>سریال پلاک</label>
+      <input id="platePartMotoSerial" type="text" placeholder="سریال پلاک" />
+    </div>
+
+    <button id="searchBtn">جستجو</button>
+  </div>
+  <div id="status"></div>
+  <div class="print-title" id="printTitle"></div>
+  <div id="results"></div>
+  <div class="app-footer">developed by M.gh</div>
+</div>
+<script>
+  const API_BASE = ((window.APP_CONFIG&&window.APP_CONFIG.API_BASE)||'').replace(/\/+$/,'') + '/estelam';
+  const authHeaders = () => ({ 'Content-Type': 'application/json', Authorization: 'Bearer ' + (()=>{try{return localStorage.getItem('endorsement-panel-token')||''}catch(e){return ''}})() });
+  const btn = document.getElementById('searchBtn');
+  const statusEl = document.getElementById('status');
+  const resultsEl = document.getElementById('results');
+  const printTitleEl = document.getElementById('printTitle');
+  const searchTypeEl = document.getElementById('searchType');
+
+  // ===================== وضعیتِ «نمایش بیشتر» =====================
+  // چون سرور فقط ۷تا۷تا بیمه‌نامه لود می‌کند (برای سرعت)، این متغیرها
+  // بین کلیک‌های دکمه‌ی «نمایش بیشتر» وضعیتِ جستجوی جاری را نگه می‌دارند.
+  let currentSearchBody = null; // { searchType, searchValue } یا { searchType, plateParts }
+  let loadedResults = [];
+  let currentOffset = 0;
+  let totalFound = 0;
+  let hasMoreResults = false;
+  let isLoadingMore = false;
+
+  // گروه‌های فیلد بر اساس نوع جستجو — فقط گروهِ مربوطه نمایش داده می‌شود
+  const FIELD_GROUPS = {
+    single: ['singleFieldGroup'],
+    national: ['nationalPlateGroup', 'nationalPlateGroup2', 'nationalPlateGroup3', 'nationalPlateGroup4'],
+    moto: ['motoPlateGroup', 'motoPlateGroup2'],
+    chassisEngine: ['chassisEngineGroup', 'chassisEngineGroup2'],
+  };
+  const ALL_GROUP_IDS = [].concat(...Object.values(FIELD_GROUPS));
+
+  // نمونه‌ی placeholder برای فیلدِ تکیِ «مقدار جستجو» — چون این یک فیلد
+  // بینِ چند نوع جستجوی کاملاً متفاوت (شماره موتور/شاسی/VIN/شماره
+  // بیمه‌نامه/کد یکتا/پلاک غیر ملی) مشترک است، هرکدام باید نمونه‌ی
+  // مخصوصِ خودش را نشان بدهد وگرنه گمراه‌کننده می‌شود (مثلاً فرمتِ کد
+  // یکتا یا شماره بیمه‌نامه اصلاً شبیه شماره موتور نیست).
+  const SINGLE_FIELD_PLACEHOLDERS = {
+    EngineNumber: 'مثلاً M159682759',
+    ChassisNumber: 'مثلاً NAS821100M1317741',
+    VIN: 'مثلاً IRWZ951VWT2035462',
+    PrintNumber: 'مثلاً 3127928/05/000042',
+    UniqueId: 'مثلاً 16001923317',
+    NonNationalPlate: 'مثلاً 12456',
+  };
+
+  function activeGroupForType(type) {
+    if (type === 'NationalPlate') return 'national';
+    if (type === 'MotorcyclePlate') return 'moto';
+    if (type === 'ChassisAndEngine') return 'chassisEngine';
+    return 'single';
+  }
+
+  function updateFieldVisibility() {
+    const type = searchTypeEl.value;
+    const activeGroup = activeGroupForType(type);
+    ALL_GROUP_IDS.forEach((id) => {
+      document.getElementById(id).style.display = FIELD_GROUPS[activeGroup].includes(id) ? '' : 'none';
+    });
+    if (activeGroup === 'single') {
+      document.getElementById('searchValue').placeholder = SINGLE_FIELD_PLACEHOLDERS[type] || 'مقدار جستجو';
+    }
+  }
+  searchTypeEl.addEventListener('change', updateFieldVisibility);
+  updateFieldVisibility();
+
+  btn.addEventListener('click', runSearch);
+  document.getElementById('searchValue').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') runSearch();
+  });
+
+  // مقدارِ نمایشیِ عنوانِ چاپ برای هر نوع جستجو
+  function buildDisplayValue(searchType) {
+    if (searchType === 'NationalPlate') {
+      const city = document.getElementById('platePartCityCode').value.trim();
+      const right3 = document.getElementById('platePartRight3').value.trim();
+      const letter = document.getElementById('platePartLetter').value.trim();
+      const left2 = document.getElementById('platePartLeft2').value.trim();
+      return `${left2} ${letter} ${right3} ایران ${city}`;
+    }
+    if (searchType === 'MotorcyclePlate') {
+      const num = document.getElementById('platePartMotoNumber').value.trim();
+      const serial = document.getElementById('platePartMotoSerial').value.trim();
+      return `${num} / سریال: ${serial}`;
+    }
+    if (searchType === 'ChassisAndEngine') {
+      const chassis = document.getElementById('ceChassisNumber').value.trim();
+      const engine = document.getElementById('ceEngineNumber').value.trim();
+      return `شاسی: ${chassis} / موتور: ${engine}`;
+    }
+    return document.getElementById('searchValue').value.trim();
+  }
+
+  // بدنه‌ی درخواست را بر اساس نوع جستجو می‌سازد
+  function buildRequestBody(searchType) {
+    if (searchType === 'NationalPlate') {
+      return {
+        searchType,
+        plateParts: {
+          cityCode: document.getElementById('platePartCityCode').value.trim(),
+          rightThree: document.getElementById('platePartRight3').value.trim(),
+          letter: document.getElementById('platePartLetter').value.trim(),
+          leftTwo: document.getElementById('platePartLeft2').value.trim(),
+        },
+      };
+    }
+    if (searchType === 'MotorcyclePlate') {
+      return {
+        searchType,
+        plateParts: {
+          plateNumber: document.getElementById('platePartMotoNumber').value.trim(),
+          plateSerial: document.getElementById('platePartMotoSerial').value.trim(),
+        },
+      };
+    }
+    if (searchType === 'ChassisAndEngine') {
+      return {
+        searchType,
+        plateParts: {
+          chassisNumber: document.getElementById('ceChassisNumber').value.trim(),
+          engineNumber: document.getElementById('ceEngineNumber').value.trim(),
+        },
+      };
+    }
+    return { searchType, searchValue: document.getElementById('searchValue').value.trim() };
+  }
+
+  // پیش از ارسال، همه‌ی فیلدهای لازمِ همون نوع جستجو پر شده باشند
+  function validateFields(searchType) {
+    if (searchType === 'NationalPlate') {
+      const p = buildRequestBody(searchType).plateParts;
+      if (!p.cityCode || !p.rightThree || !p.letter || !p.leftTwo) {
+        return 'لطفاً همه‌ی فیلدهای پلاک ملی (ایران/کدشهر، سه رقم راست، حرف، دو رقم چپ) را پر کنید.';
+      }
+      return null;
+    }
+    if (searchType === 'MotorcyclePlate') {
+      const p = buildRequestBody(searchType).plateParts;
+      if (!p.plateNumber || !p.plateSerial) {
+        return 'لطفاً هر دو فیلدِ شماره پلاک و سریال پلاک را پر کنید.';
+      }
+      return null;
+    }
+    if (searchType === 'ChassisAndEngine') {
+      const p = buildRequestBody(searchType).plateParts;
+      if (!p.chassisNumber || !p.engineNumber) {
+        return 'لطفاً هر دو فیلدِ شماره شاسی و شماره موتور را پر کنید.';
+      }
+      return null;
+    }
+    if (!document.getElementById('searchValue').value.trim()) {
+      return 'لطفاً مقدار جستجو را وارد کنید.';
+    }
+    return null;
+  }
+
+  async function runSearch() {
+    const searchType = searchTypeEl.value;
+    const validationError = validateFields(searchType);
+    if (validationError) {
+      statusEl.innerHTML = `<div class="status error">${validationError}</div>`;
+      return;
+    }
+    btn.disabled = true;
+    resultsEl.innerHTML = '';
+    statusEl.innerHTML = '<div class="status loading">در حال استعلام... (ممکن است چند ثانیه طول بکشد)</div>';
+    currentSearchBody = buildRequestBody(searchType);
+    loadedResults = [];
+    currentOffset = 0;
+    totalFound = 0;
+    hasMoreResults = false;
+    try {
+      const res = await fetch(`${API_BASE}/api/inquiry`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ ...currentSearchBody, offset: 0 }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        statusEl.innerHTML = `<div class="status error">خطا: ${data.error || 'نامشخص'}</div>`;
+        return;
+      }
+      loadedResults = data.results || [];
+      totalFound = typeof data.totalFound === 'number' ? data.totalFound : loadedResults.length;
+      currentOffset = typeof data.nextOffset === 'number' ? data.nextOffset : loadedResults.length;
+      hasMoreResults = Boolean(data.hasMore);
+      updateStatusText();
+      const typeLabel = document.querySelector(`#searchType option[value="${searchType}"]`)?.textContent || searchType;
+      const displayValue = buildDisplayValue(searchType);
+      printTitleEl.textContent = `استعلام بیمه‌نامه ثالث — ${typeLabel}: ${displayValue} — تاریخ چاپ: ${new Date().toLocaleDateString('fa-IR')}`;
+      renderResults(loadedResults);
+    } catch (err) {
+      statusEl.innerHTML = `<div class="status error">خطای اتصال به سرور: ${err.message}</div>`;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function updateStatusText() {
+    if (totalFound > loadedResults.length) {
+      statusEl.innerHTML = `<div class="status">نمایش ${loadedResults.length} از ${totalFound} بیمه‌نامه یافت‌شده</div>`;
+    } else {
+      statusEl.innerHTML = `<div class="status">تعداد بیمه‌نامه یافت‌شده: ${totalFound}</div>`;
+    }
+  }
+
+  async function loadMoreResults() {
+    if (isLoadingMore || !hasMoreResults || !currentSearchBody) return;
+    isLoadingMore = true;
+    const loadMoreBtn = document.getElementById('loadMoreBtn');
+    if (loadMoreBtn) {
+      loadMoreBtn.disabled = true;
+      loadMoreBtn.textContent = 'در حال بارگذاری...';
+    }
+    try {
+      const res = await fetch(`${API_BASE}/api/inquiry`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ ...currentSearchBody, offset: currentOffset }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        statusEl.innerHTML = `<div class="status error">خطا در بارگذاری بیشتر: ${data.error || 'نامشخص'}</div>`;
+        return;
+      }
+      loadedResults = loadedResults.concat(data.results || []);
+      totalFound = typeof data.totalFound === 'number' ? data.totalFound : totalFound;
+      currentOffset = typeof data.nextOffset === 'number' ? data.nextOffset : currentOffset;
+      hasMoreResults = Boolean(data.hasMore);
+      updateStatusText();
+      renderResults(loadedResults);
+    } catch (err) {
+      statusEl.innerHTML = `<div class="status error">خطای اتصال به سرور: ${err.message}</div>`;
+    } finally {
+      isLoadingMore = false;
+    }
+  }
+
+  function esc(v) {
+    if (v === null || v === undefined || v === '') return '-';
+    return String(v);
+  }
+
+  // برای مقداری که داخل یک attribute (مثلاً data-copy="...") قرار
+  // می‌گیرد، باید کوتیشن‌ها هم escape شوند وگرنه HTML خراب می‌شود.
+  function escAttr(v) {
+    return String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  const COPY_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+  const COPY_ICON_DONE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+
+  // یک ردیف «برچسب + مقدار + دکمه‌ی کپی» می‌سازد؛ برای فیلدهایی مثل
+  // موتور/شاسی/وین/کدملی که داخل یک سلول چند خط دارند.
+  function copyField(label, value, inline) {
+    const tag = inline ? 'span' : 'div';
+    const cls = inline ? 'field-line field-line--inline' : 'field-line';
+    if (value === null || value === undefined || value === '' || value === '-') {
+      return `<${tag} class="${cls}"><span class="field-label">${label}</span><span class="field-value">-</span></${tag}>`;
+    }
+    const v = String(value);
+    return `<${tag} class="${cls}"><span class="field-label">${label}</span><span class="field-value">${esc(v)}</span><button type="button" class="copy-btn" data-copy="${escAttr(v)}" title="کپی" aria-label="کپی">${COPY_ICON}</button></${tag}>`;
+  }
+
+  // فقط مقدار + دکمه‌ی کپی (وقتی برچسب از هدر جدول مشخص است، مثل «کد یکتا»).
+  function copyValue(value) {
+    if (value === null || value === undefined || value === '' || value === '-') {
+      return '<span class="num">-</span>';
+    }
+    const v = String(value);
+    return `<span class="field-line"><span class="field-value num">${esc(v)}</span><button type="button" class="copy-btn" data-copy="${escAttr(v)}" title="کپی" aria-label="کپی">${COPY_ICON}</button></span>`;
+  }
+
+  // یک بار برای کل صفحه: کلیک روی هر دکمه‌ی کپی را با event delegation
+  // مدیریت می‌کنیم (چون جدول مدام با innerHTML بازسازی می‌شود).
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.copy-btn');
+    if (!btn) return;
+    const value = btn.getAttribute('data-copy');
+    if (!value) return;
+    navigator.clipboard.writeText(value).then(() => {
+      const original = btn.innerHTML;
+      btn.innerHTML = COPY_ICON_DONE;
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.innerHTML = original;
+        btn.classList.remove('copied');
+      }, 1200);
+    }).catch(() => {});
+  });
+
+  // نگاشت نام شرکت‌های بیمه به نام فایل لوگو داخل پوشه‌ی logos/
+  // ترتیب مهم است: عبارت‌های خاص‌تر باید زودتر بررسی شوند تا با نام
+  // شرکت‌های دیگر اشتباه گرفته نشوند.
+  const COMPANY_LOGO_MAP = [
+    ['ایران معین', 'bimeh-iran-moein.png'],
+    ['ایران‌معین', 'bimeh-iran-moein.png'],
+    ['کار آفرین', 'bimeh-karafarin.png'],
+    ['کارآفرین', 'bimeh-karafarin.png'],
+    ['تجارت نو', 'bimeh-tejaratno.png'],
+    ['البرز', 'bimeh-alborz.png'],
+    ['آرمان', 'bimeh-arman.png'],
+    ['آسیا', 'bimeh-asia.png'],
+    ['دانا', 'bimeh-dana.png'],
+    ['دی', 'bimeh-day.png'],
+    ['حافظ', 'bimeh-hafez.png'],
+    ['کوثر', 'bimeh-kosar.png'],
+    ['ملت', 'bimeh-melat.png'],
+    ['میهن', 'bimeh-mihan.png'],
+    ['معلم', 'bimeh-moallem.png'],
+    ['نوین', 'bimeh-novin.png'],
+    ['امید', 'bimeh-omid.png'],
+    ['پارسیان', 'bimeh-parsian.png'],
+    ['پاسارگاد', 'bimeh-pasargad.png'],
+    ['رازی', 'bimeh-razi.png'],
+    ['سامان', 'bimeh-saman.png'],
+    ['سرمد', 'bimeh-sarmad.png'],
+    ['تعاون', 'bimeh-taavon.png'],
+    ['سینا', 'bimeh-sina.png'],
+    ['ما', 'bimeh-ma.png'],
+    ['ایران', 'bimeh-iran.png'],
+    ['هوشمند فردا', 'bimeh-hoshmand.png'],
+    ['پردیس', 'bimeh-pardis.png'],
+    ['حکمت', 'bimeh-hekmat.png'],
+  ];
+
+  function getCompanyLogoFile(company) {
+    if (!company) return null;
+    const found = COMPANY_LOGO_MAP.find(([keyword]) => company.includes(keyword));
+    return found ? found[1] : null;
+  }
+
+  function renderCompanyCell(company) {
+    const logoFile = getCompanyLogoFile(company);
+    const logoHtml = logoFile
+      ? `<img class="company-logo" src="logos/${logoFile}" alt="" onerror="this.remove()" />`
+      : '';
+    return `<div class="company-cell">${logoHtml}<span>${esc(company)}</span></div>`;
+  }
+
+  function findPolicyHolder(persons) {
+    if (!Array.isArray(persons) || !persons.length) return null;
+    return persons.find((p) => (p['عنوان'] || '').includes('بیمه گذار')) || persons[0];
+  }
+
+  // اگر شخصی با عنوانِ «مالک» در تب اشخاص وجود داشته باشد و با بیمه‌گذار
+  // یکی نباشد (مثلاً بیمه‌نامه به‌نام فردی خریداری شده ولی مالکِ خودرو در
+  // سند شخص دیگری است)، آن را جداگانه برمی‌گردانیم تا زیر کدملیِ بیمه‌گذار
+  // به‌صورت ریز نمایش داده شود.
+  function findVehicleOwner(persons) {
+    if (!Array.isArray(persons) || !persons.length) return null;
+    return persons.find((p) => (p['عنوان'] || '').includes('مالک')) || null;
+  }
+
+  function isSamePerson(a, b) {
+    if (!a || !b) return false;
+    const nameA = (a['نام'] || '').trim();
+    const nameB = (b['نام'] || '').trim();
+    const idA = (a['کد ملی'] || '').trim();
+    const idB = (b['کد ملی'] || '').trim();
+    // اگر کدملی هر دو موجود بود، ملاک اصلی همان است؛ وگرنه نام مقایسه می‌شود.
+    if (idA && idB) return idA === idB;
+    return nameA && nameA === nameB;
+  }
+
+  function renderDamagesLine(damages) {
+    if (!Array.isArray(damages) || !damages.length) return '';
+    return damages
+      .map((d) => {
+        // پرونده‌ی خسارتِ باز (هنوز مبلغ برآورد نشده) — تاریخ وقوع/نوع
+        // زیان‌دیده اهمیتی ندارد، فقط همین جمله‌ی ثابت کافی است.
+        if (d.isOpenCase) return 'این بیمه‌نامه دارای پرونده خسارت باز می‌باشد';
+        const bits = [];
+        if (d['تاریخ وقوع']) bits.push(`تاریخ وقوع: ${esc(d['تاریخ وقوع'])}`);
+        if (d['مبلغ برآورد خسارت']) bits.push(`مبلغ برآورد خسارت: ${esc(d['مبلغ برآورد خسارت'])}`);
+        if (d['زیان دیدگان']) bits.push(`نوع خسارت: ${esc(d['زیان دیدگان'])}`);
+        return bits.join(' — ');
+      })
+      .filter(Boolean)
+      .join(' | ');
+  }
+
+  function renderEndorsementsLines(endorsements, vehicle) {
+    if (!Array.isArray(endorsements) || !endorsements.length) return [];
+    return endorsements
+      .map((e, idx) => {
+        const bits = [];
+        // اگر نوع الحاقیه به «مفاد» اشاره داشت (معمولاً متنش خیلی طولانی و
+        // فنی است)، به‌جای نوشتنِ کامل متن، فقط عبارت کوتاهِ «الحاقیه تغییر
+        // در مفاد» نوشته می‌شود.
+        if (e.type) {
+          bits.push(e.type.includes('مفاد') ? 'الحاقیه تغییر در مفاد' : esc(e.type));
+        }
+        if (e.plate && e.plate !== '-') bits.push(`پلاک: ${esc(e.plate)}`);
+        if (e.thirdPartyDiscountPercent) bits.push(`تخفیف ثالث: ${esc(e.thirdPartyDiscountPercent)}`);
+        if (e.driverAccidentDiscountPercent) bits.push(`تخفیف حوادث راننده: ${esc(e.driverAccidentDiscountPercent)}`);
+        if (!bits.length) return '';
+        const seqLabel = e.sequence ? `الحاقیه ${esc(e.sequence)}` : `الحاقیه ${idx + 1}`;
+        const prefix = endorsements.length > 1 ? `${seqLabel}: ` : '';
+        return prefix + bits.join(' — ');
+      })
+      .filter(Boolean);
+  }
+
+  // استخراج بخش‌های پلاک ملی با ترتیب صحیح
+  function parsePlateParts(raw) {
+    if (!raw || raw === '-') return null;
+    const str = String(raw);
+    const letterMatch = str.match(/[آ-ی]/);
+    const letter = letterMatch ? letterMatch[0] : '';
+    const digitGroups = str.match(/[0-9۰-۹]+/g) || [];
+
+    let two = digitGroups.find(g => g.length === 2);
+    let three = digitGroups.find(g => g.length === 3);
+
+    if (!two || !three) {
+      const allDigits = digitGroups.join('');
+      if (allDigits.length === 5) {
+        two = allDigits.slice(0, 2);
+        three = allDigits.slice(2);
+      }
+    }
+
+    if (!two && !three && !letter) return null;
+    return { two: two || '', letter: letter || '', three: three || '' };
+  }
+
+  function extractPlateDigitsOnly(raw) {
+    if (!raw || raw === '-') return '';
+    return String(raw).replace(/[^0-9۰-۹]/g, '');
+  }
+
+  function detectPlateType(plate, serial) {
+    const hasLetter = /[آ-ی]/.test(plate || '');
+    if (hasLetter) return 'national';
+    const serialDigits = extractPlateDigitsOnly(serial);
+    if (serialDigits.length === 3) return 'motorcycle';
+    return 'freezone';
+  }
+
+  // برای پلاک‌های منطقه‌ی آزاد، سایت مقدار «اجزای پلاک» را خالی نمی‌گذارد،
+  // بلکه یک متنِ جای‌گزین بی‌معنی مثل «- -» یا «-» برمی‌گرداند و پلاکِ واقعی
+  // (مثلاً «۲۳۵۸۴») را فقط در فیلدِ خامِ «پلاک» (داخل rawPolicyInfo) می‌گذارد.
+  // چون «- -» یک رشته‌ی غیرخالی است، fallback ساده با `||` هیچ‌وقت به این
+  // فیلد نمی‌رسید. این تابع چنین مقادیرِ بی‌معنایی (فقط خط‌تیره/فاصله) را
+  // هم «خالی» در نظر می‌گیرد تا fallback درست کار کند.
+  function isPlaceholderValue(v) {
+    if (!v) return true;
+    return v.replace(/[-–—\s]/g, '').length === 0;
+  }
+
+  // رندر پلاک گرافیکی
+  function renderPlateVisual(plate, serial) {
+    if (!plate || plate === '-') return '';
+    const type = detectPlateType(plate, serial);
+    const serialStr = serial && serial !== '-' ? serial : '—';
+
+    if (type === 'national') {
+      const parts = parsePlateParts(plate);
+      if (!parts) {
+        return `
+          <div class="plate-img plate-national">
+            <div class="plate-main-text">${esc(plate)}</div>
+            <div class="plate-serial-text">${esc(serialStr)}</div>
+          </div>
+        `;
+      }
+      // سه بخش جداگانه → مشکل BiDi حل می‌شود
+      return `
+        <div class="plate-img plate-national">
+          <div class="plate-main-text">
+            <span>${esc(parts.two)}</span>
+            <span>${esc(parts.letter)}</span>
+            <span>${esc(parts.three)}</span>
+          </div>
+          <div class="plate-serial-text">${esc(serialStr)}</div>
+        </div>
+      `;
+    }
+
+    const digitsOnly = extractPlateDigitsOnly(plate) || plate;
+
+    if (type === 'motorcycle') {
+      return `
+        <div class="plate-img plate-moto">
+          <div class="mc-serial">${esc(serialStr)}</div>
+          <div class="mc-main">${esc(digitsOnly)}</div>
+        </div>
+      `;
+    }
+
+    // منطقه آزاد
+    return `
+      <div class="plate-img plate-freezone">
+        <div class="fz-serial">${esc(serialStr)}</div>
+        <div class="fz-main">${esc(digitsOnly)}</div>
+      </div>
+    `;
+  }
+
+  function renderResults(list) {
+    if (!list || !list.length) {
+      resultsEl.innerHTML = '<p class="empty-note">نتیجه‌ای یافت نشد.</p>';
+      return;
+    }
+    // ترتیب ردیف‌ها همان ترتیبی است که از سرور دریافت و رندر می‌شود؛
+    // چاپ نیز دقیقاً همین DOM را (بدون تغییر ترتیب) به PDF می‌برد.
+    const rows = list.map(renderPolicyRows).join('');
+    const loadMoreHtml = hasMoreResults
+      ? `
+        <div class="load-more-wrap">
+          <button type="button" id="loadMoreBtn" class="load-more-btn">
+            نمایش ${Math.min(5, totalFound - loadedResults.length)} بیمه‌نامه‌ی بعدی (${totalFound - loadedResults.length} مورد باقی‌مانده)
+          </button>
+        </div>
+      `
+      : '';
+    resultsEl.innerHTML = `
+      <div class="table-wrap">
+        <table class="policy-table">
+          <thead>
+            <tr>
+              <th>کد یکتا</th>
+              <th>شرکت</th>
+              <th>بیمه‌گذار</th>
+              <th>شماره بیمه‌نامه</th>
+              <th>پلاک</th>
+              <th>نوع خودرو</th>
+              <th>موتور / شاسی / وین</th>
+              <th>تاریخ شروع</th>
+              <th>تاریخ پایان</th>
+              <th>تخفیف ثالث</th>
+              <th>تخفیف راننده</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      ${loadMoreHtml}
+    `;
+    const loadMoreBtn = document.getElementById('loadMoreBtn');
+    if (loadMoreBtn) {
+      loadMoreBtn.addEventListener('click', loadMoreResults);
+    }
+  }
+
+  function renderPolicyRows(p) {
+    const holder = findPolicyHolder(p.persons);
+    const owner = findVehicleOwner(p.persons);
+    const ownerDiffers = owner && !isSamePerson(owner, holder);
+    const ownerLine = ownerDiffers
+      ? `<div class="muted owner-line">مالک: ${esc(owner['نام'])}${owner['کد ملی'] ? ` — ${copyField('کدملی: ', owner['کد ملی'], true)}` : ''}</div>`
+      : '';
+    const holderText = holder
+      ? `<div>${esc(holder['نام'])}</div>${copyField('کدملی: ', holder['کد ملی'])}${ownerLine}`
+      : '<span class="muted">یافت نشد</span>';
+
+    const vehicleText = `
+      ${copyField('موتور: ', p.vehicle?.engineNumber)}
+      ${copyField('شاسی: ', p.vehicle?.chassisNumber)}
+      ${copyField('وین: ', p.vehicle?.vin)}
+    `;
+
+    // اگر «اجزای پلاک» بی‌معنی بود (پلاک منطقه‌ی آزاد)، از فیلدِ خامِ
+    // «پلاک» که سرور بدونِ تغییر توی rawPolicyInfo فرستاده استفاده کن.
+    const effectivePlate = !isPlaceholderValue(p.plate)
+      ? p.plate
+      : p.rawPolicyInfo?.['پلاک'] || p.plate;
+    const plateText = renderPlateVisual(effectivePlate, p.plateSerial);
+
+    let subRows = '';
+    const damagesLine = renderDamagesLine(p.damages);
+    const endorsementsLines = renderEndorsementsLines(p.endorsements, p.vehicle);
+    const isIranCompany = (p.company || '').includes('ایران');
+    const hasEndorsements = Array.isArray(p.endorsements) && p.endorsements.length > 0;
+
+    if (damagesLine) {
+      subRows += `<tr class="sub-row damage-row"><td colspan="11"><span class="sub-label">⚠ خسارت:</span>${damagesLine}</td></tr>`;
+    }
+    endorsementsLines.forEach((line) => {
+      subRows += `<tr class="sub-row endorsement-row"><td colspan="11"><span class="sub-label">📄 الحاقیه:</span>${line}</td></tr>`;
+    });
+    if (isIranCompany && hasEndorsements) {
+      subRows += `<tr class="sub-row endorsement-row"><td colspan="11"><span class="sub-label">📄 نکته:</span>بیمه فوق ایران هست ، جهت بررسی الحاقیه، چاپ الحاقیه بیمه‌نامه را دریافت کنید.</td></tr>`;
+    }
+
+    return `
+      <tr class="policy-row">
+        <td>${copyValue(p.uniqueId)}</td>
+        <td>${renderCompanyCell(p.company)}</td>
+        <td>${holderText}</td>
+        <td class="num">${esc(p.policyNumber)}</td>
+        <td>${plateText}</td>
+        <td>${esc(p.vehicle?.type || p.vehicle?.system)}</td>
+        <td>${vehicleText}</td>
+        <td class="num">${esc(p.startDate)}</td>
+        <td class="num">${esc(p.endDate)}</td>
+        <td class="strong">${esc(p.thirdPartyDiscountPercent)}</td>
+        <td class="strong">${esc(p.driverAccidentDiscountPercent)}</td>
+      </tr>
+      ${subRows}
+    `;
+  }
+</script>
+
+</body>
+</html>
