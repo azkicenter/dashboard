@@ -1,2 +1,2 @@
 
-window.APP_CONFIG = { API_BASE: "https://http://localhost:8080" };
+window.APP_CONFIG = { API_BASE: "https://localhost:8080" };
