@@ -1,2 +1,2 @@
 // آدرس https تونل (بدون / آخر). هر بار تونل را از نو بزنی آدرس عوض می‌شود و اینجا باید عوض شود.
-window.APP_CONFIG = { API_BASE: "https://d4367989608e66.lhr.life" };
+window.APP_CONFIG = { API_BASE: "https://4042e126bbde68.lhr.life" };
