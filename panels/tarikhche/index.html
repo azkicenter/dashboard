@@ -232,6 +232,23 @@
   html[data-theme="dark"] .theme-toggle .icon-sun { display: block; }
   html[data-theme="dark"] .theme-toggle .icon-moon { display: none; }
 
+  /* لودینگ تمام‌صفحه: صفحه تار می‌شود و اسپینر می‌چرخد تا نتیجه آماده شود */
+  .loading-overlay { position: fixed; inset: 0; z-index: 10000; display: none; align-items: center; justify-content: center;
+    background: rgba(240,246,255,.45); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); cursor: progress; }
+  html[data-theme="dark"] .loading-overlay { background: rgba(8,12,24,.55); }
+  .loading-overlay.show { display: flex; animation: lo-fade .2s ease-out; }
+  .loading-card { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 26px 34px; max-width: min(90vw, 360px);
+    text-align: center; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-card); }
+  .spinner { width: 54px; height: 54px; border-radius: 50%; border: 5px solid var(--accent-soft); border-top-color: var(--accent-strong);
+    animation: lo-spin .9s linear infinite; }
+  .loading-text { font-weight: 700; font-size: .95rem; color: var(--ink); }
+  .loading-sub { font-size: .78rem; color: var(--ink-soft); }
+  .loading-sub:empty { display: none; }
+  @keyframes lo-spin { to { transform: rotate(360deg); } }
+  @keyframes lo-fade { from { opacity: 0; } to { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2s; } }
+  @media print { .loading-overlay { display: none !important; } }
+
   .print-title { display: none; }
   @media print {
     :root, html[data-theme="dark"] {
@@ -255,6 +272,13 @@
 </head>
 <body>
 <div class="bg-glow"></div>
+<div class="loading-overlay" id="loading" role="status" aria-live="polite" aria-busy="true">
+  <div class="loading-card">
+    <div class="spinner" aria-hidden="true"></div>
+    <div class="loading-text" id="loadingText">در حال پردازش…</div>
+    <div class="loading-sub" id="loadingSub"></div>
+  </div>
+</div>
 <button type="button" class="theme-toggle" id="themeToggleBtn" title="تغییر تم" aria-label="تغییر تم روشن یا تاریک">
   <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
   <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
@@ -545,6 +569,20 @@ function show(data) {
   out.append(bar, body);
 }
 
+// لودینگ تمام‌صفحه (شمارنده دارد تا مرحله‌ی خواندن فایل و مرحله‌ی استعلام که پشت‌سرهم می‌آیند، وسطش چشمک نزنند)
+let loadingDepth = 0;
+function showLoading(text, sub) {
+  loadingDepth++;
+  $("loadingText").textContent = text || "در حال پردازش…";
+  $("loadingSub").textContent = sub || "";
+  $("loading").classList.add("show");
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+}
+function hideLoading() {
+  loadingDepth = Math.max(0, loadingDepth - 1);
+  if (!loadingDepth) $("loading").classList.remove("show");
+}
+
 // بارگذاری برگه‌ی تاریخچه (PDF یا عکس) ← پر شدن خودکار کد ملی، کد رهگیری و پلاک
 $("uploadBtn").onclick = () => $("historyFile").click();
 $("historyFile").onchange = async (ev) => {
@@ -553,7 +591,8 @@ $("historyFile").onchange = async (ev) => {
   if (!file) return;
   const btn = $("uploadBtn"), st = $("status");
   btn.disabled = true;
-  st.replaceChildren(el("div", "status loading", "در حال خواندن فایل تاریخچه…"));
+  st.replaceChildren();
+  showLoading("در حال خواندن فایل تاریخچه…");
   try {
     const res = await fetch(API_BASE + "/api/extract", {
       method: "POST", headers: {"Content-Type": file.type || "application/octet-stream"}, body: file
@@ -575,7 +614,7 @@ $("historyFile").onchange = async (ev) => {
     // اگر همه‌ی فیلدها از فایل پر شدند، استعلام خودکار انجام شود
     const allFilled = ["nc", "tc", "sr", "r3", "l2", "lt"].every(id => String($(id).value || "").trim());
     if (!notes.length && allFilled) {
-      $("go").click();
+      await runAnalysis();   // لودینگ همچنان روی صفحه می‌ماند تا نتیجه آماده شود
       return;
     }
     if (!notes.length) st.append(el("div", "status", "کد ملی، کد رهگیری و پلاک از فایل خوانده شد؛ روی «استعلام و محاسبه» بزن."));
@@ -585,13 +624,18 @@ $("historyFile").onchange = async (ev) => {
       ? "سرور محلی در دسترس نیست؛ برنامه را با python app.py اجرا کن." : e.message));
   } finally {
     btn.disabled = false;
+    hideLoading();
   }
 };
 
-$("go").onclick = async () => {
+let analysisBusy = false;
+async function runAnalysis() {
+  if (analysisBusy) return;
+  analysisBusy = true;
   const btn = $("go"), out = $("out"), st = $("status");
   btn.disabled = true; btn.textContent = "در حال استعلام…"; out.replaceChildren();
-  st.innerHTML = ""; st.append(el("div", "status loading", "در حال استعلام از بیمه مرکزی و بیمه ملت… (ممکن است چند ثانیه طول بکشد)"));
+  st.replaceChildren();
+  showLoading("در حال استعلام از بیمه مرکزی و بیمه ملت…", "ممکن است چند ثانیه طول بکشد");
   try {
     const res = await fetch(API_BASE + "/api/analyze", {
       method: "POST", headers: {"Content-Type": "application/json"},
@@ -609,8 +653,11 @@ $("go").onclick = async () => {
     checkServer();
   } finally {
     btn.disabled = false; btn.textContent = "استعلام و محاسبه";
+    analysisBusy = false;
+    hideLoading();
   }
-};
+}
+$("go").onclick = () => runAnalysis();
 $("themeToggleBtn").onclick = () => {
   const root = document.documentElement;
   const next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
