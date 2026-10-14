@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>تاریخچه خوان</title>
+<title>تاریخچه‌خوانی</title>
 <script>
   (function () {
     try {
@@ -217,9 +217,9 @@
   .car b.ltr { direction: ltr; unicode-bidi: plaintext; color: var(--ink); }
 
   /* دکمه‌ی تغییر تم (روشن/تاریک) */
-  .upload-btn { position: fixed; top: 16px; right: 16px; z-index: 9999; height: 42px; padding: 0 16px; border-radius: 21px; cursor: pointer;
+  .upload-btn { position: static; width: auto; height: 38px; padding: 0 16px; margin: 10px auto 0; border-radius: 19px; cursor: pointer;
     background: var(--surface); color: var(--ink); border: 1px solid var(--line); box-shadow: var(--shadow-card);
-    display: flex; align-items: center; gap: 8px; font: inherit; font-size: 14px; font-weight: 600; backdrop-filter: blur(var(--glass-blur)); }
+    display: flex; align-items: center; justify-content: center; gap: 8px; font: inherit; font-size: .85rem; font-weight: 600; backdrop-filter: blur(var(--glass-blur)); }
   .upload-btn:hover { border-color: var(--accent); }
   .upload-btn:disabled { opacity: .6; cursor: wait; }
   .upload-btn svg { width: 18px; height: 18px; }
@@ -252,18 +252,12 @@
     @page { size: A4 landscape; margin: 10mm; }
   }
 </style>
-<script>if(window.top!==window.self)document.documentElement.classList.add("embedded")</script>
-<style>html.embedded .theme-toggle{display:none!important}</style>
 </head>
 <body>
 <div class="bg-glow"></div>
 <button type="button" class="theme-toggle" id="themeToggleBtn" title="تغییر تم" aria-label="تغییر تم روشن یا تاریک">
   <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
   <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
-</button>
-<button type="button" class="upload-btn" id="uploadBtn" title="فایل PDF (یا عکس) برگه‌ی استعلام تاریخچه‌ی پلاک را بارگذاری کن تا کد ملی، کد رهگیری و پلاک خودکار پر شود">
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-  <span>بارگذاری تاریخچه</span>
 </button>
 <input type="file" id="historyFile" accept=".pdf,application/pdf,image/*" hidden>
 <div class="container">
@@ -288,32 +282,39 @@
     <button id="go" class="go">استعلام و محاسبه</button>
   </div>
 
+  <button type="button" class="upload-btn" id="uploadBtn" title="فایل PDF (یا عکس) برگه‌ی استعلام تاریخچه‌ی پلاک را بارگذاری کن تا کد ملی، کد رهگیری و پلاک خودکار پر شود">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    <span>بارگذاری تاریخچه</span>
+  </button>
+
   <div id="status"></div>
   <div class="print-title" id="printTitle"></div>
   <div id="out"></div>
 </div>
 
-<script src="../../config.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 
 // اگر صفحه از خود سرور پایتون باز شده باشد آدرس نسبی است؛ اگر از GitHub Pages باز شده باشد به سرور روی همین لپ‌تاپ وصل می‌شود.
 // پورت را اینجا عوض کن اگر برنامه را با --port دیگری اجرا می‌کنی.
 const LOCAL_PORT = 8000;
+// اگر می‌خواهی بقیه هم از طریق سیستم تو استفاده کنند، آدرس https تونل (مثلاً https://xxxx.trycloudflare.com) را اینجا بگذار.
+// خالی بماند = فقط خودت (سرور روی 127.0.0.1 همین لپ‌تاپ).
+const TUNNEL_URL = "";
 const IS_LOCAL = ["127.0.0.1", "localhost"].includes(location.hostname);
-const API_BASE = ((window.APP_CONFIG&&window.APP_CONFIG.API_BASE)||'').replace(/\/+$/,'') + "/tarikhche";
-const authToken = () => (()=>{try{return localStorage.getItem('panel-auth-token')||''}catch(e){return ''}})();
+const API_BASE = IS_LOCAL ? "" : (TUNNEL_URL.replace(/\/$/, "") || `http://127.0.0.1:${LOCAL_PORT}`);
 
 // بررسی اینکه سرور پایتون در حال اجراست
 async function checkServer() {
   const box = $("server");
   try {
-    const r = await fetch(API_BASE + "/api/ping", {cache: "no-store", headers: {Authorization: "Bearer " + authToken()}});
+    const r = await fetch(API_BASE + "/api/ping", {cache: "no-store"});
     if (!r.ok) throw new Error();
     box.replaceChildren();
   } catch (e) {
     box.replaceChildren(el("div", "status error",
-      "ارتباط با سرور برقرار نشد یا نشست شما تمام شده؛ صفحه‌ی اصلی پنل را رفرش کنید و دوباره وارد شوید."));
+      "سرور محلی در دسترس نیست. برنامه را روی همین لپ‌تاپ با دستور python app.py اجرا کن، بعد صفحه را رفرش کن. " +
+      "(اگر مرورگر اجازه‌ی «دسترسی به دستگاه‌های شبکه‌ی محلی» را پرسید، Allow بزن.)"));
   }
 }
 window.addEventListener("focus", checkServer);
@@ -555,7 +556,7 @@ $("historyFile").onchange = async (ev) => {
   st.replaceChildren(el("div", "status loading", "در حال خواندن فایل تاریخچه…"));
   try {
     const res = await fetch(API_BASE + "/api/extract", {
-      method: "POST", headers: {"Content-Type": file.type || "application/octet-stream", Authorization: "Bearer " + authToken()}, body: file
+      method: "POST", headers: {"Content-Type": file.type || "application/octet-stream"}, body: file
     });
     const d = await res.json();
     if (!res.ok) throw new Error(d.error || "خطای نامشخص");
@@ -571,11 +572,17 @@ $("historyFile").onchange = async (ev) => {
     if (d.warning) notes.push(d.warning);
     if (d.source === "ocr") notes.push("فایل عکس بود و با OCR خوانده شد؛ مقدارها را با عکس تطبیق بده.");
     if (notes.length) st.append(el("div", "status error", notes.join(" — ")));
-    else st.append(el("div", "status", "کد ملی، کد رهگیری و پلاک از فایل خوانده شد؛ روی «استعلام و محاسبه» بزن."));
+    // اگر همه‌ی فیلدها از فایل پر شدند، استعلام خودکار انجام شود
+    const allFilled = ["nc", "tc", "sr", "r3", "l2", "lt"].every(id => String($(id).value || "").trim());
+    if (!notes.length && allFilled) {
+      $("go").click();
+      return;
+    }
+    if (!notes.length) st.append(el("div", "status", "کد ملی، کد رهگیری و پلاک از فایل خوانده شد؛ روی «استعلام و محاسبه» بزن."));
     focusNextEmpty();
   } catch (e) {
     st.replaceChildren(el("div", "status error", e.message === "Failed to fetch"
-      ? "ارتباط با سرور برقرار نشد؛ دوباره تلاش کنید." : e.message));
+      ? "سرور محلی در دسترس نیست؛ برنامه را با python app.py اجرا کن." : e.message));
   } finally {
     btn.disabled = false;
   }
@@ -587,7 +594,7 @@ $("go").onclick = async () => {
   st.innerHTML = ""; st.append(el("div", "status loading", "در حال استعلام از بیمه مرکزی و بیمه ملت… (ممکن است چند ثانیه طول بکشد)"));
   try {
     const res = await fetch(API_BASE + "/api/analyze", {
-      method: "POST", headers: {"Content-Type": "application/json", Authorization: "Bearer " + authToken()},
+      method: "POST", headers: {"Content-Type": "application/json"},
       body: JSON.stringify({national_code: $("nc").value, trace_code: $("tc").value,
         left2: $("l2").value, letter: $("lt").value, right3: $("r3").value, serial: $("sr").value})
     });
@@ -597,7 +604,7 @@ $("go").onclick = async () => {
     $("printTitle").textContent = `تاریخچه‌خوانی — پلاک: ${$("sr").value} - ${$("r3").value} ${$("lt").value} ${$("l2").value} — تاریخ چاپ: ${new Date().toLocaleDateString("fa-IR")}`;
     show(data);
   } catch (e) {
-    const msg = e instanceof TypeError ? "ارتباط با سرور برقرار نشد؛ دوباره تلاش کنید." : e.message;
+    const msg = e instanceof TypeError ? "اتصال به سرور محلی برقرار نشد؛ مطمئن شو python app.py اجراست" : e.message;
     st.replaceChildren(el("div", "status error", "خطا: " + msg));
     checkServer();
   } finally {
