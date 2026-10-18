@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>تاریخچه‌خوانی</title>
+<script src="../../config.js"></script>
 <script>
   (function () {
     try {
@@ -320,24 +321,36 @@ const $ = id => document.getElementById(id);
 
 // اگر صفحه از خود سرور پایتون باز شده باشد آدرس نسبی است؛ اگر از GitHub Pages باز شده باشد به سرور روی همین لپ‌تاپ وصل می‌شود.
 // پورت را اینجا عوض کن اگر برنامه را با --port دیگری اجرا می‌کنی.
-const LOCAL_PORT = 8000;
-// اگر می‌خواهی بقیه هم از طریق سیستم تو استفاده کنند، آدرس https تونل (مثلاً https://xxxx.trycloudflare.com) را اینجا بگذار.
-// خالی بماند = فقط خودت (سرور روی 127.0.0.1 همین لپ‌تاپ).
-const TUNNEL_URL = "";
+// حالت‌ها:
+//  1) باز شدن مستقیم از سرور پایتون (127.0.0.1 / localhost): آدرس نسبی، بدون توکن.
+//  2) داخل پنل یکپارچه (GitHub Pages): آدرس تونل از config.js (همان که صفحه‌ی اصلی می‌خواند) + مسیر /tarikhche + توکن ورود.
 const IS_LOCAL = ["127.0.0.1", "localhost"].includes(location.hostname);
-const API_BASE = IS_LOCAL ? "" : (TUNNEL_URL.replace(/\/$/, "") || `http://127.0.0.1:${LOCAL_PORT}`);
+const TOKEN_KEY = "panel-auth-token";
+function tunnelBase() {
+  let b = "";
+  try { if (window.parent !== window && window.parent.APP_CONFIG) b = window.parent.APP_CONFIG.API_BASE || ""; } catch (e) {}
+  if (!b && window.APP_CONFIG) b = window.APP_CONFIG.API_BASE || "";
+  return b.replace(/\/+$/, "");
+}
+const API_BASE = IS_LOCAL ? "" : (tunnelBase() ? tunnelBase() + "/tarikhche" : "");
+function authHeaders(extra) {
+  const h = Object.assign({}, extra || {});
+  if (!IS_LOCAL) { try { const t = localStorage.getItem(TOKEN_KEY); if (t) h["Authorization"] = "Bearer " + t; } catch (e) {} }
+  return h;
+}
 
 // بررسی اینکه سرور پایتون در حال اجراست
 async function checkServer() {
   const box = $("server");
   try {
-    const r = await fetch(API_BASE + "/api/ping", {cache: "no-store"});
+    if (!IS_LOCAL && !API_BASE) throw new Error("no-config");
+    const r = await fetch(API_BASE + "/api/ping", {cache: "no-store", headers: authHeaders()});
+    if (r.status === 401) { box.replaceChildren(el("div", "status error", "نشست شما تمام شده؛ صفحه‌ی اصلی را رفرش کنید و دوباره وارد شوید.")); return; }
     if (!r.ok) throw new Error();
     box.replaceChildren();
   } catch (e) {
     box.replaceChildren(el("div", "status error",
-      "سرور محلی در دسترس نیست. برنامه را روی همین لپ‌تاپ با دستور python app.py اجرا کن، بعد صفحه را رفرش کن. " +
-      "(اگر مرورگر اجازه‌ی «دسترسی به دستگاه‌های شبکه‌ی محلی» را پرسید، Allow بزن.)"));
+      "اتصال به سرور برقرار نشد. مطمئن شوید برنامه روی سیستم میزبان اجراست، بعد صفحه‌ی اصلی را رفرش کنید."));
   }
 }
 window.addEventListener("focus", checkServer);
@@ -594,7 +607,7 @@ $("historyFile").onchange = async (ev) => {
   showLoading("در حال خواندن فایل تاریخچه…");
   try {
     const res = await fetch(API_BASE + "/api/extract", {
-      method: "POST", headers: {"Content-Type": file.type || "application/octet-stream"}, body: file
+      method: "POST", headers: authHeaders({"Content-Type": file.type || "application/octet-stream"}), body: file
     });
     const d = await res.json();
     if (!res.ok) throw new Error(d.error || "خطای نامشخص");
@@ -620,7 +633,7 @@ $("historyFile").onchange = async (ev) => {
     focusNextEmpty();
   } catch (e) {
     st.replaceChildren(el("div", "status error", e.message === "Failed to fetch"
-      ? "سرور محلی در دسترس نیست؛ برنامه را با python app.py اجرا کن." : e.message));
+      ? "اتصال به سرور برقرار نشد؛ مطمئن شوید برنامه روی سیستم میزبان اجراست." : e.message));
   } finally {
     btn.disabled = false;
     hideLoading();
@@ -637,7 +650,7 @@ async function runAnalysis() {
   showLoading("در حال استعلام از بیمه مرکزی و بیمه ملت…", "ممکن است چند ثانیه طول بکشد");
   try {
     const res = await fetch(API_BASE + "/api/analyze", {
-      method: "POST", headers: {"Content-Type": "application/json"},
+      method: "POST", headers: authHeaders({"Content-Type": "application/json"}),
       body: JSON.stringify({national_code: $("nc").value, trace_code: $("tc").value,
         left2: $("l2").value, letter: $("lt").value, right3: $("r3").value, serial: $("sr").value})
     });
@@ -647,7 +660,7 @@ async function runAnalysis() {
     $("printTitle").textContent = `تاریخچه‌خوانی — پلاک: ${$("sr").value} - ${$("r3").value} ${$("lt").value} ${$("l2").value} — تاریخ چاپ: ${new Date().toLocaleDateString("fa-IR")}`;
     show(data);
   } catch (e) {
-    const msg = e instanceof TypeError ? "اتصال به سرور محلی برقرار نشد؛ مطمئن شو python app.py اجراست" : e.message;
+    const msg = e instanceof TypeError ? "اتصال به سرور برقرار نشد؛ مطمئن شوید برنامه روی سیستم میزبان اجراست." : e.message;
     st.replaceChildren(el("div", "status error", "خطا: " + msg));
     checkServer();
   } finally {
