@@ -383,7 +383,7 @@ function selectPanel(id){
     frame = document.createElement('iframe');
     frame.dataset.id = p.id; frame.title = p.title;
     frame.addEventListener('load', () => syncFrameTheme(frame));
-    frame.src = p.url;
+    frame.src = p.url + (p.url.includes('?') ? '&' : '?') + 't=' + Date.now();   // همیشه نسخه‌ی جدید پنل (کش مرورگر/گیت‌هاب نادیده گرفته می‌شود)
     viewport.appendChild(frame);
   }
   navList.querySelectorAll('.nav-item').forEach(b => {
