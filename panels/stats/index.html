@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>آمار درخواست‌ها</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../theme.css">
+<script src="../../config.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Vazirmatn', Tahoma, Arial, sans-serif; font-size: 14px; color: var(--g-ink); background: transparent; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 18px 14px 40px; display: flex; flex-direction: column; gap: 16px; }
+  .card { background: var(--g-surface); border: 1px solid var(--g-line); border-radius: 16px; box-shadow: var(--g-shadow);
+          -webkit-backdrop-filter: blur(16px) saturate(170%); backdrop-filter: blur(16px) saturate(170%); padding: 16px; }
+  .head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .head h1 { margin: 0; font-size: 1.1rem; font-weight: 800; }
+  .range { display: flex; gap: 6px; flex-wrap: wrap; }
+  .range button, .refresh { font: inherit; font-size: .8rem; font-weight: 600; padding: 7px 14px; border-radius: 999px; cursor: pointer;
+          color: var(--g-ink); background: var(--g-tint); border: 1px solid var(--g-line); }
+  .range button[aria-pressed="true"] { color: #fff; background: var(--g-btn); border-color: rgba(255,255,255,.45); }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .kpi { padding: 12px 14px; border-radius: 14px; background: var(--g-tint); border: 1px solid var(--g-line); }
+  .kpi small { display: block; color: var(--g-ink-soft); font-size: .76rem; margin-bottom: 4px; }
+  .kpi b { font-size: 1.45rem; font-weight: 800; color: var(--g-accent-strong); }
+  .kpi b.bad { color: var(--g-danger); }
+  h2 { margin: 0 0 12px; font-size: .95rem; font-weight: 700; }
+  /* نمودار ستونی */
+  .chart { display: flex; align-items: flex-end; gap: 3px; height: 190px; padding-top: 10px; direction: ltr; }
+  .bar { flex: 1 1 0; min-width: 3px; height: 100%; display: flex; flex-direction: column-reverse; position: relative; border-radius: 4px 4px 0 0; overflow: hidden; cursor: default; }
+  .bar:hover { outline: 2px solid var(--g-accent); outline-offset: 1px; }
+  .seg { width: 100%; }
+  .axis { display: flex; justify-content: space-between; direction: ltr; color: var(--g-ink-faint); font-size: .72rem; margin-top: 6px; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 12px; font-size: .78rem; color: var(--g-ink-soft); }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-left: 6px; vertical-align: -1px; }
+  .tip { position: fixed; z-index: 10; pointer-events: none; padding: 8px 11px; border-radius: 10px; font-size: .78rem; line-height: 1.7;
+         background: var(--g-surface); border: 1px solid var(--g-line); box-shadow: var(--g-shadow-float);
+         -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); display: none; }
+  .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+  th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--g-line); }
+  th { font-weight: 600; color: var(--g-ink-soft); font-size: .78rem; }
+  tbody tr:nth-child(even) { background: var(--g-row-alt); }
+  tbody tr:hover { background: var(--g-row-hover); }
+  td.n, th.n { text-align: left; font-variant-numeric: tabular-nums; }
+  .scroll { max-height: 360px; overflow: auto; }
+  .err { color: var(--g-danger); background: var(--g-danger-soft); border-radius: 10px; padding: 10px 12px; font-weight: 500; }
+  .muted { color: var(--g-ink-faint); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card head">
+    <h1>آمار درخواست‌ها</h1>
+    <div class="range" id="range">
+      <button data-d="7">۷ روز</button>
+      <button data-d="30" aria-pressed="true">۳۰ روز</button>
+      <button data-d="90">۹۰ روز</button>
+      <button data-d="365">یک سال</button>
+      <button class="refresh" id="refresh" type="button">به‌روزرسانی</button>
+    </div>
+  </div>
+  <div id="msg"></div>
+  <div class="kpis" id="kpis"></div>
+  <div class="card">
+    <h2>تعداد درخواست در هر روز</h2>
+    <div class="chart" id="chart"></div>
+    <div class="axis"><span id="axFrom"></span><span id="axTo"></span></div>
+    <div class="legend" id="legend"></div>
+  </div>
+  <div class="cols">
+    <div class="card"><h2>به تفکیک پنل</h2><table><thead><tr><th>پنل</th><th class="n">تعداد</th><th class="n">سهم</th></tr></thead><tbody id="tPanel"></tbody></table></div>
+    <div class="card"><h2>به تفکیک کاربر</h2><table><thead><tr><th>کاربر</th><th class="n">تعداد</th><th class="n">سهم</th></tr></thead><tbody id="tUser"></tbody></table></div>
+  </div>
+  <div class="card">
+    <h2>جدول روزانه</h2>
+    <div class="scroll"><table><thead><tr><th>تاریخ</th><th class="n">کل درخواست</th><th class="n">خطا</th><th>پنل‌ها</th></tr></thead><tbody id="tDay"></tbody></table></div>
+  </div>
+</div>
+<div class="tip" id="tip"></div>
+
+<script>
+const API = ((window.APP_CONFIG && window.APP_CONFIG.API_BASE) || '').replace(/\/+$/, '');
+const TOKEN_KEY = 'panel-auth-token';
+const PANEL_FA = { estelam: 'استعلام', tarikhche: 'تاریخچه خوان', endorsement: 'الحاقیه', login: 'تلاش ورود' };
+const PANEL_COLOR = { estelam: '#17A9FF', tarikhche: '#7C5CE0', endorsement: '#1FA971', login: '#E08A17' };
+const $ = id => document.getElementById(id);
+const nf = new Intl.NumberFormat('fa-IR');
+const fa = n => nf.format(n);
+const dfmt = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { year: 'numeric', month: 'short', day: 'numeric', weekday: 'short', timeZone: 'UTC' });
+const dshort = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { month: 'numeric', day: 'numeric', timeZone: 'UTC' });
+const jd = (iso, f = dfmt) => f.format(new Date(iso + 'T12:00:00Z'));
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+let days = 30;
+
+function expired() {
+  try { localStorage.removeItem(TOKEN_KEY); } catch (e) {}
+  if (window.top !== window.self) window.parent.postMessage({ type: 'auth-expired' }, location.origin);
+}
+async function load() {
+  $('msg').innerHTML = '';
+  let token = ''; try { token = localStorage.getItem(TOKEN_KEY) || ''; } catch (e) {}
+  try {
+    const r = await fetch(API + '/stats/api/summary?days=' + days, { headers: { Authorization: 'Bearer ' + token }, cache: 'no-store' });
+    if (r.status === 401) return expired();
+    if (r.status === 403) { $('msg').innerHTML = '<div class="err">فقط کاربر مدیر به این صفحه دسترسی دارد.</div>'; return; }
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    render((await r.json()).days);
+  } catch (e) {
+    $('msg').innerHTML = '<div class="err">دریافت آمار ناموفق بود؛ دوباره تلاش کنید.</div>';
+  }
+}
+
+function sumMap(list, key) {
+  const m = {};
+  list.forEach(d => Object.entries(d[key] || {}).forEach(([k, v]) => { m[k] = (m[k] || 0) + v; }));
+  return Object.entries(m).sort((a, b) => b[1] - a[1]);
+}
+
+function render(list) {
+  const total = list.reduce((a, d) => a + d.total, 0);
+  const errors = list.reduce((a, d) => a + d.errors, 0);
+  const today = list[list.length - 1] || { total: 0 };
+  const last7 = list.slice(-7).reduce((a, d) => a + d.total, 0);
+  const peak = list.reduce((a, d) => (d.total > a.total ? d : a), { total: 0, date: '' });
+  $('kpis').innerHTML = [
+    ['امروز', fa(today.total)],
+    ['۷ روز اخیر', fa(last7)],
+    ['مجموع بازه', fa(total)],
+    ['میانگین روزانه', fa(Math.round(total / list.length))],
+    ['پرترددترین روز', peak.total ? fa(peak.total) + ' <small class="muted">(' + jd(peak.date, dshort) + ')</small>' : '—'],
+    ['درخواست‌های خطادار', '<span class="' + (errors ? 'bad' : '') + '">' + fa(errors) + '</span>'],
+  ].map(([k, v]) => '<div class="kpi"><small>' + k + '</small><b>' + v + '</b></div>').join('');
+
+  // نمودار: ستون‌ها به‌صورت انباشته بر اساس پنل
+  const panels = sumMap(list, 'by_panel').map(x => x[0]);
+  const max = Math.max(1, ...list.map(d => d.total));
+  $('chart').innerHTML = list.map((d, i) => {
+    const segs = panels.map(p => {
+      const v = (d.by_panel || {})[p] || 0;
+      return v ? '<div class="seg" style="height:' + (v / max * 100) + '%;background:' + (PANEL_COLOR[p] || '#8892a6') + '"></div>' : '';
+    }).join('');
+    return '<div class="bar" data-i="' + i + '">' + segs + '</div>';
+  }).join('');
+  $('axFrom').textContent = list.length ? jd(list[0].date, dshort) : '';
+  $('axTo').textContent = list.length ? jd(list[list.length - 1].date, dshort) : '';
+  $('legend').innerHTML = panels.map(p => '<span><i style="background:' + (PANEL_COLOR[p] || '#8892a6') + '"></i>' + esc(PANEL_FA[p] || p) + '</span>').join('');
+
+  const tip = $('tip');
+  $('chart').querySelectorAll('.bar').forEach(el => {
+    const d = list[+el.dataset.i];
+    el.addEventListener('mousemove', e => {
+      tip.innerHTML = '<b>' + jd(d.date) + '</b><br>کل: ' + fa(d.total) + (d.errors ? ' · خطا: ' + fa(d.errors) : '') +
+        Object.entries(d.by_panel || {}).map(([p, v]) => '<br>' + esc(PANEL_FA[p] || p) + ': ' + fa(v)).join('');
+      tip.style.display = 'block';
+      tip.style.left = Math.min(e.clientX + 14, innerWidth - 190) + 'px';
+      tip.style.top = (e.clientY + 14) + 'px';
+    });
+    el.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+  });
+
+  const share = v => total ? fa(Math.round(v / total * 100)) + '٪' : '—';
+  const rows = (arr, nameFn) => arr.length
+    ? arr.map(([k, v]) => '<tr><td>' + esc(nameFn(k)) + '</td><td class="n">' + fa(v) + '</td><td class="n">' + share(v) + '</td></tr>').join('')
+    : '<tr><td colspan="3" class="muted">داده‌ای نیست</td></tr>';
+  $('tPanel').innerHTML = rows(sumMap(list, 'by_panel'), k => PANEL_FA[k] || k);
+  $('tUser').innerHTML = rows(sumMap(list, 'by_user'), k => (k === '-' ? 'بدون ورود (تلاش ورود)' : k));
+  $('tDay').innerHTML = list.slice().reverse().map(d =>
+    '<tr><td>' + jd(d.date) + '</td><td class="n">' + fa(d.total) + '</td><td class="n">' + (d.errors ? fa(d.errors) : '—') + '</td><td class="muted">' +
+    (Object.entries(d.by_panel || {}).map(([p, v]) => esc(PANEL_FA[p] || p) + ' ' + fa(v)).join(' · ') || '—') + '</td></tr>').join('');
+}
+
+$('range').addEventListener('click', e => {
+  const b = e.target.closest('button[data-d]'); if (!b) return;
+  days = +b.dataset.d;
+  $('range').querySelectorAll('button[data-d]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  load();
+});
+$('refresh').addEventListener('click', load);
+load();
+</script>
+</body>
+</html>
