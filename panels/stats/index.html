@@ -48,6 +48,12 @@
   .scroll { max-height: 360px; overflow: auto; }
   .err { color: var(--g-danger); background: var(--g-danger-soft); border-radius: 10px; padding: 10px 12px; font-weight: 500; }
   .muted { color: var(--g-ink-faint); }
+  .okc { color: var(--g-ok, #1FA971); } .warnc { color: #E08A17; }
+  .kpi b.okc { color: var(--g-ok, #1FA971); } .kpi b.warnc { color: #E08A17; }
+  .pbar { height: 8px; border-radius: 99px; background: var(--g-tint); border: 1px solid var(--g-line); overflow: hidden; min-width: 80px; }
+  .pbar i { display: block; height: 100%; }
+  .note { font-size: .76rem; color: var(--g-ink-faint); line-height: 1.9; margin-top: 10px; }
+  h2.sec { font-size: 1rem; margin: 6px 2px 0; }
 </style>
 </head>
 <body>
@@ -63,6 +69,23 @@
     </div>
   </div>
   <div id="msg"></div>
+  <h2 class="sec">استعلام‌های یکتا (تاریخچه‌خوان)</h2>
+  <div class="kpis" id="iKpis"></div>
+  <div class="cols">
+    <div class="card"><h2>نتیجه‌ی استعلام‌های یکتا</h2>
+      <table><thead><tr><th>نتیجه</th><th class="n">تعداد</th><th class="n">سهم</th><th></th></tr></thead><tbody id="iOut"></tbody></table>
+      <div class="note">«یکتا» یعنی یک تاریخچه‌ی متفاوت (پلاک + کد رهگیری). اگر همان تاریخچه چند بار زده شود یک‌بار شمرده می‌شود و نتیجه‌ی آن، آخرین نتیجه‌ی موفق است (اگر هیچ‌بار موفق نبوده، آخرین خطا).
+      آمار یکتا از زمان فعال‌شدن این نسخه شروع می‌شود؛ روزهای قبل فقط در آمار فنیِ پایین صفحه هستند.</div>
+    </div>
+    <div class="card"><h2>استعلام یکتا به تفکیک کاربر</h2>
+      <table><thead><tr><th>کاربر</th><th class="n">یکتا</th><th class="n">سهم</th></tr></thead><tbody id="iUser"></tbody></table>
+    </div>
+  </div>
+  <div class="card">
+    <h2>جدول روزانه‌ی استعلام‌های یکتا</h2>
+    <div class="scroll"><table><thead><tr><th>تاریخ</th><th class="n">کل تلاش</th><th class="n">یکتا</th><th class="n">قطعی</th><th class="n">دارای تخفیف</th><th class="n">نیاز به بررسی</th><th class="n">خطا</th></tr></thead><tbody id="iDay"></tbody></table></div>
+  </div>
+  <h2 class="sec">آمار فنی همه‌ی درخواست‌ها <span class="muted" style="font-weight:400;font-size:.78rem">(شامل تلاش ورود، تکرار و خطا)</span></h2>
   <div class="kpis" id="kpis"></div>
   <div class="card">
     <h2>تعداد درخواست در هر روز</h2>
@@ -107,10 +130,55 @@ async function load() {
     if (r.status === 401) return expired();
     if (r.status === 403) { $('msg').innerHTML = '<div class="err">فقط کاربر مدیر به این صفحه دسترسی دارد.</div>'; return; }
     if (!r.ok) throw new Error('HTTP ' + r.status);
-    render((await r.json()).days);
+    const j = await r.json();
+    render(j.days);
+    renderInq(j.inquiry);
   } catch (e) {
     $('msg').innerHTML = '<div class="err">دریافت آمار ناموفق بود؛ دوباره تلاش کنید.</div>';
   }
+}
+
+const OUT_COLOR = { final_discount: '#1FA971', final_none: '#5BC0A0', review_discount: '#E08A17', review_none: '#F0B968',
+                    err_input: '#E5484D', err_source: '#C23B5A', err_internal: '#8B2E3F' };
+const isFinal = o => o === 'final_discount' || o === 'final_none';
+const isReview = o => o === 'review_discount' || o === 'review_none';
+const hasPct = o => o === 'final_discount' || o === 'review_discount';
+const isErr = o => String(o).startsWith('err_');
+const cnt = (m, f) => Object.entries(m || {}).reduce((a, [k, v]) => a + (f(k) ? v : 0), 0);
+
+function renderInq(q) {
+  if (!q) { $('iKpis').innerHTML = '<div class="err">این نسخه‌ی بک‌اند آمار یکتا را ندارد؛ gateway.py را به‌روز کنید و دوباره اجرا کنید.</div>'; return; }
+  const r = q.range, o = r.outcomes || {}, u = r.unique;
+  const fin = cnt(o, isFinal), rev = cnt(o, isReview), err = cnt(o, isErr), pct = cnt(o, hasPct), ok = u - err;
+  const kpi = (k, v, cls, sub) => '<div class="kpi"><small>' + k + '</small><b class="' + (cls || '') + '">' + fa(v) + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</div>';
+  $('iKpis').innerHTML = [
+    kpi('استعلام یکتا (تاریخچه‌ی متفاوت)', u),
+    kpi('کل تلاش‌ها (با تکرار)', r.attempts, '', r.failed ? fa(r.failed) + ' تلاش ناموفق' : ''),
+    kpi('استعلام موفق (تخفیف بررسی شد)', ok, 'okc', u ? fa(Math.round(ok / u * 100)) + '٪ از یکتا' : ''),
+    kpi('دارای درصد تخفیف', pct, 'okc'),
+    kpi('قطعی', fin, 'okc'),
+    kpi('نیاز به بررسی کارشناس', rev, 'warnc', u ? fa(Math.round(rev / u * 100)) + '٪ از یکتا' : ''),
+    kpi('بدون نتیجه (خطا)', err, err ? 'bad' : '', 'حتی با تلاش مجدد'),
+    kpi('تاریخچه‌ی تکراری', r.repeated, '', 'بیش از یک‌بار زده شده'),
+  ].join('');
+
+  const labels = q.labels || {};
+  const keys = Object.keys(labels).filter(k => o[k]).concat(Object.keys(o).filter(k => !labels[k]));
+  const order = Object.keys(labels);
+  keys.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  $('iOut').innerHTML = keys.length ? keys.map(k => '<tr><td>' + esc(labels[k] || k) + '</td><td class="n">' + fa(o[k]) + '</td><td class="n">' +
+    (u ? fa(Math.round(o[k] / u * 100)) + '٪' : '—') + '</td><td><div class="pbar"><i style="width:' + (u ? o[k] / u * 100 : 0) + '%;background:' + (OUT_COLOR[k] || '#8892a6') + '"></i></div></td></tr>').join('')
+    : '<tr><td colspan="4" class="muted">هنوز استعلامی ثبت نشده</td></tr>';
+
+  const users = Object.entries(r.by_user || {}).sort((a, b) => b[1] - a[1]);
+  $('iUser').innerHTML = users.length ? users.map(([k, v]) => '<tr><td>' + esc(k) + '</td><td class="n">' + fa(v) + '</td><td class="n">' + (u ? fa(Math.round(v / u * 100)) + '٪' : '—') + '</td></tr>').join('')
+    : '<tr><td colspan="3" class="muted">داده‌ای نیست</td></tr>';
+
+  $('iDay').innerHTML = q.days.slice().reverse().map(d => {
+    const m = d.outcomes || {};
+    const c = (n, cls) => '<td class="n ' + (cls || '') + '">' + (n ? fa(n) : '—') + '</td>';
+    return '<tr><td>' + jd(d.date) + '</td>' + c(d.attempts) + c(d.unique) + c(cnt(m, isFinal), 'okc') + c(cnt(m, hasPct), 'okc') + c(cnt(m, isReview), 'warnc') + c(cnt(m, isErr), 'bad') + '</tr>';
+  }).join('');
 }
 
 function sumMap(list, key) {
