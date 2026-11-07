@@ -907,7 +907,7 @@ async function runAnalysis() {
   const btn = $("go"), out = $("out"), st = $("status");
   btn.disabled = true; btn.textContent = "در حال استعلام…"; out.replaceChildren();
   st.replaceChildren();
-  showLoading("در حال استعلام از بیمه مرکزی و بیمه ملت…", "ممکن است چند ثانیه طول بکشد");
+  showLoading("در حال استعلام از بیمه مرکزی و سامانه‌ی بیمه ایران…", "ممکن است چند ثانیه طول بکشد");
   try {
     const res = await fetch(API_BASE + "/api/analyze", {
       method: "POST", headers: authHeaders({"Content-Type": "application/json"}),
