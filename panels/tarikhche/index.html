@@ -843,6 +843,127 @@ async function readScreenshot(file) {
   return res;
 }
 
+// ===== خواندن اسکرین‌شات «برگه‌ی استعلام تاریخچه پلاک» (فرم بالای برگه): هر تکه جدا برش و خوانده می‌شود =====
+// خواندن کل عکس با هم، برچسب‌های فارسی کنار کدها را رقم می‌خواند و به کد می‌چسباند؛ پس ردیف فرم را پیدا و تکه‌تکه می‌خوانیم.
+function sheetFindBand(dark, W, H) {
+  const ys = [];
+  for (let y = 0; y < H; y++) { let n = 0; for (let x = 0; x < W; x++) n += dark[y * W + x]; if (n > W * 0.5) ys.push(y); }
+  const lines = [];   // خط‌های ضخیم چندردیفی یکی می‌شوند
+  for (const y of ys) { const l = lines[lines.length - 1]; if (l && y - l.y1 <= 2) l.y1 = y; else lines.push({ y0: y, y1: y }); }
+  for (let i = 0; i + 1 < lines.length; i++) {
+    const gap = lines[i + 1].y0 - lines[i].y1;
+    if (gap > W * 0.025 && gap < W * 0.09) return { y0: lines[i].y1 + 3, y1: lines[i + 1].y0 - 3 };
+  }
+  return null;
+}
+function sheetVRun(dark, W, x, y0, y1) {   // بلندترین رشته‌ی پیوسته‌ی تیره در یک ستون (لبه‌ی کادر)
+  let m = 0, b = 0;
+  for (let y = y0; y <= y1; y++) { if (dark[y * W + x]) { b++; if (b > m) m = b; } else b = 0; }
+  return m;
+}
+function sheetTokens(dark, W, y0, y1, minGap) {
+  const cols = new Uint8Array(W);
+  for (let x = 0; x < W; x++) for (let y = y0; y <= y1; y++) if (dark[y * W + x]) { cols[x] = 1; break; }
+  const toks = []; let x = 0;
+  while (x < W) {
+    if (!cols[x]) { x++; continue; }
+    const s = x; let gap = 0, e = x;
+    while (x < W && gap < minGap) { if (cols[x]) { gap = 0; e = x; } else gap++; x++; }
+    if (e - s >= 3) toks.push({ x0: s, x1: e });
+  }
+  return toks;
+}
+function sheetCrop(src, x0, y0, x1, y1, scaleTo) {
+  const w = x1 - x0 + 1, h = y1 - y0 + 1, k = Math.max(1, scaleTo / h);
+  const c = document.createElement("canvas"); c.width = Math.round(w * k) + 40; c.height = Math.round(h * k) + 40;
+  const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height);
+  x.imageSmoothingQuality = "high"; x.drawImage(src, x0, y0, w, h, 20, 20, Math.round(w * k), Math.round(h * k));
+  return c;
+}
+async function readSheetForm(file) {
+  await loadTesseract();
+  const bmp = await createImageBitmap(file), W = bmp.width, H = bmp.height;
+  const c1 = document.createElement("canvas"); c1.width = W; c1.height = H;
+  const ctx = c1.getContext("2d", { willReadFrequently: true }); ctx.drawImage(bmp, 0, 0);
+  const d = ctx.getImageData(0, 0, W, H).data, dark = new Uint8Array(W * H);
+  for (let i = 0; i < W * H; i++) dark[i] = Math.min(d[i * 4], d[i * 4 + 1], d[i * 4 + 2]) < 140 ? 1 : 0;
+  const band = sheetFindBand(dark, W, H);
+  if (!band) return null;
+  const { y0, y1 } = band, bh = y1 - y0 + 1;
+  const toks = sheetTokens(dark, W, y0, y1, Math.max(10, Math.round(W * 0.014)));
+  const worker = await Tesseract.createWorker("eng");
+  const out = { national_code: null, trace_code: null, plate: null, missing: [], source: "screenshot" };
+  const digits = async (x0, x1, yy0, yy1) => {
+    const { data } = await worker.recognize(sheetCrop(c1, x0, yy0, x1, yy1, 120));
+    return (data.text || "").replace(/[^0-9]/g, "");
+  };
+  try {
+    await worker.setParameters({ tessedit_char_whitelist: "0123456789", tessedit_pageseg_mode: "7" });
+    const longs = [];
+    let plateTok = null;
+    for (const t of toks) {
+      const w = t.x1 - t.x0 + 1;
+      // گروه کادرهای پلاک: پهن‌ترین تکه که ستون‌های عمودی (لبه‌ی کادرها) دارد
+      let vlines = 0;
+      for (let x = t.x0; x <= t.x1; x++) if (sheetVRun(dark, W, x, y0, y1) >= bh * 0.55) vlines++;
+      if (vlines >= 4 && (!plateTok || w > plateTok.x1 - plateTok.x0)) { plateTok = t; continue; }
+      if (w > W * 0.04) {
+        const v = await digits(t.x0, t.x1, y0, y1);
+        if (v.length >= 10 && v.length <= 20) longs.push({ v, x: t.x0 });
+      }
+    }
+    longs.sort((a, b) => a.x - b.x);
+    const nc = longs.find(l => l.v.length === 10 && shotCheckNationalCode(l.v)) || longs.find(l => l.v.length === 10);
+    const tc = longs.find(l => l.v.length >= 11);
+    out.national_code = nc ? nc.v : null;
+    out.trace_code = tc ? tc.v : null;
+    if (plateTok) {
+      // لبه‌های کادرها: ستون‌های پشت‌سرهم یک لبه حساب می‌شوند
+      const edges = []; let last = -9;
+      for (let x = plateTok.x0; x <= plateTok.x1; x++) {
+        if (sheetVRun(dark, W, x, y0, y1) >= bh * 0.55) { if (x - last > 3) edges.push({ a: x, b: x }); else edges[edges.length - 1].b = x; last = x; }
+      }
+      if (edges.length && edges[0].a - plateTok.x0 > 8) edges.unshift({ a: plateTok.x0, b: plateTok.x0 });   // لبه‌ی چپ کادر اول کم‌رنگ است
+      const boxes = [];
+      for (let i = 0; i + 1 < edges.length; i++)
+        if (edges[i + 1].a - edges[i].b > 8) boxes.push({ x0: edges[i].b + 2, x1: edges[i + 1].a - 2 });
+      // چپ ← راست: [۲ رقم] [حرف] [۳ رقم] [ایران + سریال]
+      if (boxes.length >= 4) {
+        const b = boxes.slice(-4), m = Math.round(bh * 0.22), iy0 = y0 + m, iy1 = y1 - m;   // داخل کادر، بدون خط لبه
+        const inner = k => [k.x0 + 2, k.x1 - 2];
+        const left2 = await digits(...inner(b[0]), iy0, iy1);
+        const right3 = await digits(...inner(b[2]), iy0, iy1);
+        // کادر ایران: «ایران» (رقم خوانده نمی‌شود) و سریال دو رقمی در سمت راست کادر
+        const serial = (await digits(...inner(b[3]), iy0, iy1)).slice(-2);
+        let letter = "";
+        try { letter = await sheetReadLetter(c1, b[1], iy0, iy1); } catch (e) { letter = ""; }
+        out.plate = { left2, right3, serial, letter };
+      }
+    }
+  } finally { await worker.terminate(); }
+  if (out.plate && (out.plate.left2.length !== 2 || out.plate.right3.length !== 3 || out.plate.serial.length !== 2)) out.plate = null;
+  if (!out.national_code) out.missing.push("کد ملی");
+  if (!out.trace_code) out.missing.push("کد رهگیری");
+  if (!out.plate) out.missing.push("پلاک");
+  else if (!out.plate.letter) out.missing.push("حرف پلاک");
+  if (out.national_code && !shotCheckNationalCode(out.national_code))
+    out.warning = "کد ملی خوانده‌شده معتبر نیست (رقم کنترل نمی‌خورد)؛ با عکس تطبیق بده.";
+  return (out.national_code || out.trace_code || out.plate) ? out : null;
+}
+async function sheetReadLetter(src, box, y0, y1) {
+  const w = await Tesseract.createWorker("fas");
+  try {
+    await w.setParameters({ tessedit_pageseg_mode: "10" });
+    for (const sz of [160, 120]) {   // در دو اندازه امتحان؛ اولین حرفی که در فهرست حروف پلاک باشد
+      const { data } = await w.recognize(sheetCrop(src, box.x0 + 3, y0, box.x1 - 3, y1, sz));
+      const raw = (data.text || "").replace(/\s+/g, "");
+      const ch = PERSIAN_FIX[raw] || raw;
+      if ([...$("lt").options].some(o => o.value === ch)) return ch;
+    }
+    return "";
+  } finally { await w.terminate(); }
+}
+
 // بارگذاری برگه‌ی تاریخچه (PDF) یا اسکرین‌شات ← پر شدن خودکار کد ملی، کد رهگیری و پلاک
 async function handleHistoryFile(file) {
   if (!file) return;
@@ -856,9 +977,13 @@ async function handleHistoryFile(file) {
   try {
     let d = null, clientErr = null;
     if (isImg) {
-      try {
-        d = await readScreenshot(file);
-        if (!d.plate && !d.trace_code && !d.national_code) d = null;
+      try {   // اول خواندن تکه‌تکه‌ی فرم برگه؛ اگر ردیف فرم پیدا نشد، روش قبلی (اسکرین‌شات صفحه‌ی وب)
+        d = await readSheetForm(file);
+        if (!d || !(d.trace_code && d.plate)) {
+          const d2 = await readScreenshot(file);
+          if (d2 && (d2.plate || d2.trace_code || d2.national_code) && (!d || (d2.missing || []).length < (d.missing || []).length)) d = d2;
+        }
+        if (d && !d.plate && !d.trace_code && !d.national_code) d = null;
       } catch (e) { clientErr = e; d = null; }
     }
     if (!d) {   // PDF، یا عکسی که در مرورگر خوانده نشد ← خواندن سمت سرور (اگر Tesseract آنجا نصب باشد)
