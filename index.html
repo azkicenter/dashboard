@@ -305,16 +305,14 @@ let API = ((window.APP_CONFIG && window.APP_CONFIG.API_BASE) || '').replace(/\/+
 let AUTH = API + '/auth/api';                    // سرویس لاگین مستقل (جدا از هر سه پنل)
 const TOKEN_KEY = 'panel-auth-token';              // پنل‌های داخل iframe (هم‌مبدأ) همین کلید را می‌خوانند
 const THEME_KEY = 'tarikhcheTheme';
-const DEFAULT_PANEL = 'estelam';                   // پنلی که بعد از ورود باز می‌شود
+const DEFAULT_PANEL = 'tarikhche';                   // پنلی که بعد از ورود باز می‌شود
 
 const ICONS = {
-  estelam:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>',
   tarikhche:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/></svg>',
   stats:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/></svg>',
   endorsement: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 15l5.5-5.5 1.5 1.5L10.5 16.5 8.5 17z"/></svg>',
 };
 const PANELS = [
-  { id: 'estelam',     title: 'استعلام البرز (سنهاب)', desc: 'استعلام بیمه‌نامه ثالث و جزئیات آن',         url: 'panels/estelam/index.html' },
   { id: 'tarikhche',   title: 'تاریخچه خوان', desc: 'محاسبه‌ی تخفیف قابل انتقال پلاک',            url: 'panels/tarikhche/index.html' },
   { id: 'endorsement', title: 'الحاقیه ایران',  desc: 'حذف تخفیفات و اصلاح مشخصات مالک/بیمه‌گذار', url: 'panels/endorsement/index.html' },
   { id: 'stats',       title: 'آمار درخواست‌ها', desc: 'تعداد درخواست‌ها در روزهای مختلف (فقط مدیر)', url: 'panels/stats/index.html', adminOnly: true },
