@@ -207,6 +207,9 @@
   tr.sub-row td { padding: 6px 10px; font-size: .75rem; }
   tr.damage-row td { background: var(--danger-soft); color: var(--danger); }
   tr.endorsement-row td { background: var(--amber-soft); color: var(--amber); }
+  .print-btn { font: inherit; font-weight: 700; color: inherit; background: transparent; border: 1px dashed currentColor; border-radius: 6px; padding: 2px 10px; cursor: pointer; }
+  .print-btn:disabled { opacity: .6; cursor: wait; }
+  @media print { .print-btn { display: none; } }
   .sub-label { font-weight: 700; margin-left: 4px; }
   .chip { display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: .72rem; background: var(--accent-soft); color: var(--accent-strong); }
   .chip.exp { background: rgba(128,128,128,.18); color: var(--ink-soft); }
@@ -309,7 +312,7 @@ select.need { outline: 2px solid #e5484d; outline-offset: 2px; }
 
   <button type="button" class="upload-btn" id="uploadBtn" title="فایل PDF یا اسکرین‌شات برگه‌ی استعلام را بارگذاری کن (یا اسکرین‌شات را همین‌جا Ctrl+V کن) تا کد ملی، کد رهگیری و پلاک خودکار پر شود">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-    <span>بارگذاری تاریخچه</span>
+    <span>بارگذاری تاریخچه / اسکرین‌شات</span>
   </button>
 
   <div id="status"></div>
@@ -519,12 +522,38 @@ function policiesTable(car) {
       td.append(el("span", "sub-label", label), document.createTextNode(text)); r.append(td); tb.append(r);
     };
     if (p.other_plate) sub("endorsement-row", "🔗 پلاک دیگر:", `این بیمه‌نامه با پلاک ${p.other_plate} روی همین شاسی صادر شده و تخفیف را ادامه داده است (از استعلام شاسی)`);
+    const isIran = (p.company || "").includes("ایران");
     if (p.endorsement) sub("endorsement-row", "📄 الحاقیه:", "حذف تخفیفات — تخفیفات ۰" + (p.endorsement_text ? " — " + p.endorsement_text : ""));
-    if (p.needs_print) sub("endorsement-row", "📄 نکته:", "بیمه ایران است؛ برای مشخص شدن حذف تخفیفات، چاپ الحاقیه بیمه‌نامه را دریافت کنید.");
+    if (isIran && p.endorsement) {
+      const r = el("tr", "sub-row endorsement-row"), td = el("td"); td.colSpan = 7;
+      const btn = el("button", "print-btn", "بیمه‌نامه دارای الحاقیه می‌باشد؛ برای دریافت چاپ الحاقیه کلیک کنید");
+      btn.type = "button"; btn.onclick = () => fetchEndorsementPrint(p.number, btn);
+      td.append(el("span", "sub-label", "🖨️"), btn); r.append(td); tb.append(r);
+    } else if (p.needs_print) sub("endorsement-row", "📄 نکته:", "بیمه ایران است؛ برای مشخص شدن حذف تخفیفات، چاپ الحاقیه بیمه‌نامه را دریافت کنید.");
     else if (!p.expired && !p.endorsement) sub("endorsement-row", "📄 نکته:", "بیمه‌نامه هنوز جاری است؛ تخفیف قابل انتقال است ولی نیاز به الحاقیه حذف تخفیفات دارد.");
   });
   t.append(tb); tw.append(t); wrap.append(tw);
   return wrap;
+}
+
+async function fetchEndorsementPrint(number, btn) {
+  const label = btn.textContent; btn.disabled = true; btn.textContent = "در حال دریافت الحاقیه…";
+  try {
+    const res = await fetch(API_BASE + "/api/endorsement-print", {
+      method: "POST", headers: authHeaders({"Content-Type": "application/json"}),
+      body: JSON.stringify({policyNumber: number})});
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(j.error === "unauthorized" ? "دسترسی/نشست معتبر نیست؛ دوباره وارد شوید" : (j.error || j.message || "خطا " + res.status));
+    if (!(j.files || []).length) throw new Error("الحاقیه‌ای برای این بیمه‌نامه پیدا نشد");
+    j.files.forEach(f => {
+      const bin = atob(f.contentBase64), u8 = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+      const url = URL.createObjectURL(new Blob([u8], {type: f.contentType || "application/pdf"}));
+      window.open(url, "_blank");
+    });
+    btn.textContent = label;
+  } catch (e) { btn.textContent = "خطا: " + e.message + " — دوباره کلیک کنید"; }
+  btn.disabled = false;
 }
 
 function show(data) {
