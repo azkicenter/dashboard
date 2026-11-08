@@ -20,6 +20,7 @@
   .range { display: flex; gap: 6px; flex-wrap: wrap; }
   .range button, .refresh { font: inherit; font-size: .8rem; font-weight: 600; padding: 7px 14px; border-radius: 999px; cursor: pointer;
           color: var(--g-ink); background: var(--g-tint); border: 1px solid var(--g-line); }
+  .range input[type=date] { font: inherit; font-size: .8rem; padding: 5px 10px; border-radius: 10px; border: 1px solid rgba(120,140,170,.35); background: rgba(255,255,255,.6); color: inherit; }
   .range button[aria-pressed="true"] { color: #fff; background: var(--g-btn); border-color: rgba(255,255,255,.45); }
   .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
   .kpi { padding: 12px 14px; border-radius: 14px; background: var(--g-tint); border: 1px solid var(--g-line); }
@@ -61,16 +62,26 @@
   <div class="card head">
     <h1>آمار درخواست‌ها</h1>
     <div class="range" id="range">
+      <button data-d="1" data-today="1">امروز</button>
+      <button data-d="1" data-yday="1">دیروز</button>
       <button data-d="7">۷ روز</button>
       <button data-d="30" aria-pressed="true">۳۰ روز</button>
       <button data-d="90">۹۰ روز</button>
       <button data-d="365">یک سال</button>
       <button class="refresh" id="refresh" type="button">به‌روزرسانی</button>
     </div>
+    <div class="range" id="custom" style="margin-top:10px">
+      <label class="muted" style="font-size:.82rem">از <input type="date" id="dFrom"></label>
+      <label class="muted" style="font-size:.82rem">تا <input type="date" id="dTo"></label>
+      <button type="button" id="dApply">اعمال</button>
+      <span class="muted" id="dTxt" style="font-size:.82rem"></span>
+    </div>
   </div>
   <div id="msg"></div>
   <h2 class="sec">استعلام‌های یکتا (تاریخچه‌خوان)</h2>
-  <div class="kpis" id="iKpis"></div>
+  <div class="card"><h2>خلاصه‌ی بازه</h2>
+    <table><thead><tr><th>شاخص</th><th class="n">تعداد</th><th class="n">سهم از یکتا</th><th>توضیح</th></tr></thead><tbody id="iKpis"></tbody></table>
+  </div>
   <div class="cols">
     <div class="card"><h2>نتیجه‌ی استعلام‌های یکتا</h2>
       <table><thead><tr><th>نتیجه</th><th class="n">تعداد</th><th class="n">سهم</th><th></th></tr></thead><tbody id="iOut"></tbody></table>
@@ -117,6 +128,9 @@ const dshort = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { month: 'numeric',
 const jd = (iso, f = dfmt) => f.format(new Date(iso + 'T12:00:00Z'));
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 let days = 30;
+let fromD = '', toD = '';   // بازه‌ی دلخواه (میلادی YYYY-MM-DD)؛ خالی = «days» روز اخیر
+const ymd = d => d.toLocaleDateString('en-CA', { timeZone: 'Asia/Tehran' });
+const dayShift = n => ymd(new Date(Date.now() - n * 864e5));
 
 function expired() {
   try { localStorage.removeItem(TOKEN_KEY); } catch (e) {}
@@ -126,7 +140,7 @@ async function load() {
   $('msg').innerHTML = '';
   let token = ''; try { token = localStorage.getItem(TOKEN_KEY) || ''; } catch (e) {}
   try {
-    const r = await fetch(API + '/stats/api/summary?days=' + days, { headers: { Authorization: 'Bearer ' + token }, cache: 'no-store' });
+    const r = await fetch(API + '/stats/api/summary?days=' + days + (fromD ? '&from=' + fromD + '&to=' + (toD || fromD) : ''), { headers: { Authorization: 'Bearer ' + token }, cache: 'no-store' });
     if (r.status === 401) return expired();
     if (r.status === 403) { $('msg').innerHTML = '<div class="err">فقط کاربر مدیر به این صفحه دسترسی دارد.</div>'; return; }
     if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -147,19 +161,20 @@ const isErr = o => String(o).startsWith('err_');
 const cnt = (m, f) => Object.entries(m || {}).reduce((a, [k, v]) => a + (f(k) ? v : 0), 0);
 
 function renderInq(q) {
-  if (!q) { $('iKpis').innerHTML = '<div class="err">این نسخه‌ی بک‌اند آمار یکتا را ندارد؛ gateway.py را به‌روز کنید و دوباره اجرا کنید.</div>'; return; }
+  if (!q) { $('iKpis').innerHTML = '<tr><td colspan="4"><div class="err">این نسخه‌ی بک‌اند آمار یکتا را ندارد؛ gateway.py را به‌روز کنید و دوباره اجرا کنید.</div></td></tr>'; return; }
   const r = q.range, o = r.outcomes || {}, u = r.unique;
   const fin = cnt(o, isFinal), rev = cnt(o, isReview), err = cnt(o, isErr), pct = cnt(o, hasPct), ok = u - err;
-  const kpi = (k, v, cls, sub) => '<div class="kpi"><small>' + k + '</small><b class="' + (cls || '') + '">' + fa(v) + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</div>';
+  const share = v => u ? fa(Math.round(v / u * 100)) + '٪' : '—';
+  const row = (k, v, cls, sh, note) => '<tr><td>' + k + '</td><td class="n ' + (cls || '') + '"><b>' + fa(v) + '</b></td><td class="n">' + (sh ? share(v) : '—') + '</td><td class="muted">' + (note || '') + '</td></tr>';
   $('iKpis').innerHTML = [
-    kpi('استعلام یکتا (تاریخچه‌ی متفاوت)', u),
-    kpi('کل تلاش‌ها (با تکرار)', r.attempts, '', r.failed ? fa(r.failed) + ' تلاش ناموفق' : ''),
-    kpi('استعلام موفق (تخفیف بررسی شد)', ok, 'okc', u ? fa(Math.round(ok / u * 100)) + '٪ از یکتا' : ''),
-    kpi('دارای درصد تخفیف', pct, 'okc'),
-    kpi('قطعی', fin, 'okc'),
-    kpi('نیاز به بررسی کارشناس', rev, 'warnc', u ? fa(Math.round(rev / u * 100)) + '٪ از یکتا' : ''),
-    kpi('بدون نتیجه (خطا)', err, err ? 'bad' : '', 'حتی با تلاش مجدد'),
-    kpi('تاریخچه‌ی تکراری', r.repeated, '', 'بیش از یک‌بار زده شده'),
+    row('استعلام یکتا (تاریخچه‌ی متفاوت)', u),
+    row('کل تلاش‌ها (با تکرار)', r.attempts, '', false, r.failed ? fa(r.failed) + ' تلاش ناموفق' : ''),
+    row('استعلام موفق (تخفیف بررسی شد)', ok, 'okc', true),
+    row('دارای درصد تخفیف', pct, 'okc', true),
+    row('قطعی', fin, 'okc', true),
+    row('نیاز به بررسی کارشناس', rev, 'warnc', true),
+    row('بدون نتیجه (خطا)', err, err ? 'bad' : '', true, 'حتی با تلاش مجدد'),
+    row('تاریخچه‌ی تکراری', r.repeated, '', false, 'بیش از یک‌بار زده شده'),
   ].join('');
 
   const labels = q.labels || {};
@@ -194,8 +209,8 @@ function render(list) {
   const last7 = list.slice(-7).reduce((a, d) => a + d.total, 0);
   const peak = list.reduce((a, d) => (d.total > a.total ? d : a), { total: 0, date: '' });
   $('kpis').innerHTML = [
-    ['امروز', fa(today.total)],
-    ['۷ روز اخیر', fa(last7)],
+    [fromD ? 'آخرین روز بازه' : 'امروز', fa(today.total)],
+    [fromD ? '۷ روز آخر بازه' : '۷ روز اخیر', fa(last7)],
     ['مجموع بازه', fa(total)],
     ['میانگین روزانه', fa(Math.round(total / list.length))],
     ['پرترددترین روز', peak.total ? fa(peak.total) + ' <small class="muted">(' + jd(peak.date, dshort) + ')</small>' : '—'],
@@ -240,11 +255,25 @@ function render(list) {
     (Object.entries(d.by_panel || {}).map(([p, v]) => esc(PANEL_FA[p] || p) + ' ' + fa(v)).join(' · ') || '—') + '</td></tr>').join('');
 }
 
+function setPressed(b) { document.querySelectorAll('#range button[data-d]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); }
+function showRange() {
+  $('dFrom').value = fromD || ''; $('dTo').value = toD || '';
+  $('dTxt').textContent = fromD ? jd(fromD) + (toD && toD !== fromD ? ' تا ' + jd(toD) : '') : '';
+}
 $('range').addEventListener('click', e => {
   const b = e.target.closest('button[data-d]'); if (!b) return;
   days = +b.dataset.d;
-  $('range').querySelectorAll('button[data-d]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
-  load();
+  if (b.dataset.today) { fromD = toD = dayShift(0); }
+  else if (b.dataset.yday) { fromD = toD = dayShift(1); }
+  else { fromD = toD = ''; }
+  setPressed(b); showRange(); load();
+});
+$('dApply').addEventListener('click', () => {
+  let a = $('dFrom').value, b = $('dTo').value;
+  if (!a && !b) return;
+  a = a || b; b = b || a;
+  if (a > b) [a, b] = [b, a];
+  fromD = a; toD = b; setPressed(null); showRange(); load();
 });
 $('refresh').addEventListener('click', load);
 load();
