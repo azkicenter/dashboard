@@ -312,7 +312,7 @@ select.need { outline: 2px solid #e5484d; outline-offset: 2px; }
 
   <button type="button" class="upload-btn" id="uploadBtn" title="فایل PDF یا اسکرین‌شات برگه‌ی استعلام را بارگذاری کن (یا اسکرین‌شات را همین‌جا Ctrl+V کن) تا کد ملی، کد رهگیری و پلاک خودکار پر شود">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-    <span>بارگذاری تاریخچه</span>
+    <span>بارگذاری تاریخچه / اسکرین‌شات</span>
   </button>
 
   <div id="status"></div>
@@ -428,7 +428,8 @@ function buildAnnouncement(r) {
   return `${part(r.years, r.percent, "تخفیف ثالث")} ${part(drvYears, drvPct, "تخفیف حوادث راننده")} ` +
          `قابل انتقال از شماره بیمه‌نامه ${r.policy_number || "-"} با شماره شاسی ${r.best_chassis || "-"}` +
          ((r.endorsement_policies || []).length
-           ? ` — نیاز به الحاقیه حذف تخفیفات دارد (بیمه‌نامه ${r.endorsement_policies.join("، ")} هنوز جاری است)` : "");
+           ? ` — نیاز به الحاقیه حذف تخفیفات دارد (بیمه‌نامه ${r.endorsement_policies.join("، ")} هنوز جاری است)` : "") +
+         (r.short_term_notice ? ` — نکته: ${r.short_term_notice}` : "");
 }
 
 // یک کادر کوچک: «تخفیف ثالث: 12 سال 60 درصد»
@@ -490,6 +491,7 @@ function logicPanel(r) {
   ol.append(el("li", "", "قاعده‌ی اعمال‌شده: " + (RULES[best.rule] || best.rule)));
   (best.notes || []).forEach(n => ol.append(el("li", "", n)));
   if ((best.counted_policies || []).length) ol.append(el("li", "", "بیمه‌نامه‌های شمرده‌شده: " + best.counted_policies.join("، ")));
+  if (r.short_term_notice) ol.append(el("li", "endorse", "نکته (کوتاه‌مدت): " + r.short_term_notice));
   if ((r.endorsement_policies || []).length)
     ol.append(el("li", "endorse", `بیمه‌نامه ${r.endorsement_policies.join("، ")} هنوز جاری است؛ این تخفیف قابل انتقال است ولی برای انتقال نیاز به الحاقیه حذف تخفیفات دارد.`));
   wrap.append(ol);
