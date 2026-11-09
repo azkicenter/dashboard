@@ -341,7 +341,26 @@ function applyPanels(list){
 
 const getToken   = () => { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch(e){ return ''; } };
 const setToken   = t  => { try { localStorage.setItem(TOKEN_KEY, t); } catch(e){} };
-const clearToken = () => { try { localStorage.removeItem(TOKEN_KEY); } catch(e){} };
+const clearToken = () => {
+  try { localStorage.removeItem(TOKEN_KEY); } catch(e){}
+  try { ['sanhab-auth-token','sanhab-auth-user'].forEach(k => localStorage.removeItem(k)); } catch(e){}   // خروج از داشبورد = خروج از سنهاب
+};
+
+/* ---------- ورود یکپارچه‌ی سنهاب: همان نام کاربری/رمز داشبورد، یک‌بار پشت صحنه؛ اگر نشد، کاربر داخل تب سنهاب خودش وارد می‌شود ---------- */
+async function ssoSanhab(username, password){
+  try {
+    if (!username || !password) return;
+    const c = await fetch('https://azkicenter.github.io/sanhab/config.js?v=' + Date.now(), { cache: 'no-store' });
+    const m = (await c.text()).match(/API_BASE["']?\s*[:=]\s*["'`]([^"'`]*)["'`]/);
+    const base = m && m[1].replace(/\/+$/, ''); if (!base) return;
+    const u = username.trim().replace(/\s+/g, '_');
+    const r = await fetch(base + '/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, code: password }) });
+    if (!r.ok) return;
+    const d = await r.json();
+    if (d.token) { localStorage.setItem('sanhab-auth-token', d.token); localStorage.setItem('sanhab-auth-user', d.user); localStorage.setItem('sanhab-last-user', d.user); }
+    const f = viewport.querySelector('iframe[data-id="sanhab"]'); if (f) f.src = f.src;   // اگر تب قبلاً باز شده بود، با نشست جدید دوباره بارگذاری شود
+  } catch(e) {}
+}
 
 /* ---------- تم ---------- */
 const currentTheme = () => document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
@@ -523,6 +542,7 @@ $('otpResend').addEventListener('click', async () => {
   } catch(e) { err.textContent = 'ارتباط با سرور برقرار نشد.'; }
 });
 
+let pendingCreds = null;
 $('loginForm').addEventListener('submit', async e => {
   e.preventDefault();
   const err = $('loginErr'), btn = $('loginBtn');
@@ -534,7 +554,7 @@ $('loginForm').addEventListener('submit', async e => {
         body: JSON.stringify({ otp_token: otpToken, code: $('otp').value.trim() }),
       });
       const d = await r.json().catch(() => ({}));
-      if (r.ok) { setToken(d.token); backToCreds(); showApp({ username: d.username, role: d.role, panels: d.panels }); return; }
+      if (r.ok) { setToken(d.token); if (pendingCreds) ssoSanhab(pendingCreds.u, pendingCreds.p); pendingCreds = null; backToCreds(); showApp({ username: d.username, role: d.role, panels: d.panels }); return; }
       if (d.error === 'otp_expired' || d.error === 'otp_locked') {
         backToCreds(); err.textContent = d.error === 'otp_locked' ? 'تلاش‌های اشتباه زیاد بود؛ چند دقیقه بعد دوباره امتحان کنید.' : 'مهلت کد تمام شد؛ دوباره وارد شوید.'; return;
       }
@@ -544,6 +564,7 @@ $('loginForm').addEventListener('submit', async e => {
       $('otp').select();
       return;
     }
+    pendingCreds = { u: $('username').value, p: $('password').value };
     const r = await fetch(AUTH + '/login', {          // مرحله‌ی ۱: نام کاربری و رمز
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: $('username').value.trim(), password: $('password').value }),
@@ -554,6 +575,7 @@ $('loginForm').addEventListener('submit', async e => {
     const d = await r.json();
     if (d.otp_required) { $('password').value = ''; showOtpStep(d); return; }
     setToken(d.token);
+    if (pendingCreds) ssoSanhab(pendingCreds.u, pendingCreds.p); pendingCreds = null;
     showApp({ username: d.username, role: d.role, panels: d.panels });
   } catch(ex) {
     err.textContent = 'ارتباط با سرور برقرار نشد.'; showDown();
