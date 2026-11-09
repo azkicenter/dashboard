@@ -345,6 +345,17 @@ const clearToken = () => { try { localStorage.removeItem(TOKEN_KEY); } catch(e){
 
 /* ---------- تم ---------- */
 const currentTheme = () => document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+/* پنل‌های بیرونی (سنهاب): هدر/لوگو/تم خودشان داخل داشبورد تکراری است؛ فقط نوار کاربر و خروج می‌ماند */
+const EMBED_CSS = {
+  sanhab: '.topbar .brand,#themeBtn{display:none!important}.topbar{justify-content:flex-start!important;padding:6px 10px!important;min-height:0!important}body{padding-top:8px!important}',
+};
+function injectEmbedCss(f){
+  const css = EMBED_CSS[f.dataset.id]; if (!css) return;
+  try {
+    const d = f.contentDocument; if (!d || d.getElementById('embed-css')) return;
+    const st = d.createElement('style'); st.id = 'embed-css'; st.textContent = css; d.head.appendChild(st);
+  } catch(e){}
+}
 function syncFrameTheme(f){
   try { f.contentDocument.documentElement.setAttribute('data-theme', currentTheme()); } catch(e){}
 }
@@ -391,7 +402,7 @@ function selectPanel(id){
   if (!frame) {                                   // lazy: فقط بار اول ساخته می‌شود (و بعدش حالت صفحه حفظ می‌شود)
     frame = document.createElement('iframe');
     frame.dataset.id = p.id; frame.title = p.title;
-    frame.addEventListener('load', () => syncFrameTheme(frame));
+    frame.addEventListener('load', () => { syncFrameTheme(frame); injectEmbedCss(frame); });
     frame.src = p.url + (p.url.includes('?') ? '&' : '?') + 't=' + Date.now();   // همیشه نسخه‌ی جدید پنل (کش مرورگر/گیت‌هاب نادیده گرفته می‌شود)
     viewport.appendChild(frame);
   }
