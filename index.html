@@ -347,7 +347,8 @@ const clearToken = () => { try { localStorage.removeItem(TOKEN_KEY); } catch(e){
 const currentTheme = () => document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
 /* پنل‌های بیرونی (سنهاب): هدر/لوگو/تم خودشان داخل داشبورد تکراری است؛ فقط نوار کاربر و خروج می‌ماند */
 const EMBED_CSS = {
-  sanhab: '.topbar .brand,#themeBtn{display:none!important}.topbar{justify-content:flex-start!important;padding:6px 10px!important;min-height:0!important}body{padding-top:8px!important}',
+  sanhab:    '.topbar{display:none!important}body{padding-top:8px!important}',
+  wallboard: '.topbar-wrap{display:none!important}',
 };
 function injectEmbedCss(f){
   const css = EMBED_CSS[f.dataset.id]; if (!css) return;
