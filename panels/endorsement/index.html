@@ -553,65 +553,6 @@
     </div>
 
     
-    <div class="panel-card hidden" id="adminCard">
-      <div class="card-head">
-        <span class="card-num">۲</span>
-        <h2 class="panel-title">صدور الحاقیه حذف تخفیفات</h2>
-      </div>
-      <p class="panel-sub">در صورت نیاز، با ثبت تاریخ تغییر مالکیت، الحاقیه حذف تخفیفات برای این بیمه‌نامه صادر می‌شود.</p>
-
-      <div class="field-row">
-        <div class="field" style="flex:2;">
-          <label for="issuePolicyInput">شماره بیمه‌نامه</label>
-          <input type="text" id="issuePolicyInput" placeholder="مثال: 1403/01/12/03456" />
-        </div>
-        <div class="field" style="flex:1;min-width:150px;">
-          <label for="ownershipDateInput">تاریخ تغییر مالکیت</label>
-          <input type="text" id="ownershipDateInput" placeholder="1403/06/15" />
-        </div>
-      </div>
-
-      <div class="notice">این عملیات یک الحاقیه رسمی روی بیمه‌نامه صادر می‌کند و پس از صدور قابل بازگشت نیست؛ قبل از تأیید، شماره بیمه و تاریخ رو دوباره چک کنید.</div>
-
-      <div class="form-actions">
-        <button class="primary" id="issueBtn">صدور الحاقیه</button>
-      </div>
-
-      <div id="issueStatus" class="status"></div>
-      <div id="issueFileList" class="file-list"></div>
-
-      <div id="correctionPanel" style="display:none;margin-top:18px;padding-top:18px;border-top:1px dashed var(--border);">
-        <p class="panel-sub" style="margin:0 0 14px 0;">
-          اطلاعات مالک/بیمه‌گذار ثبت‌شده روی بیمه‌نامه با استعلام ثبت‌احوال مطابقت ندارد.
-          کد ملی و تاریخ تولد صحیح هرکدام که نیاز به اصلاح دارد را وارد کنید (در صورت نیاز فقط یکی را پر کنید).
-        </p>
-        <div class="field-row">
-          <div class="field">
-            <label for="holderNationalCodeInput">کد ملی بیمه‌گذار</label>
-            <input type="text" id="holderNationalCodeInput" placeholder="مثال: 2282990625" />
-          </div>
-          <div class="field">
-            <label for="holderBirthDateInput">تاریخ تولد بیمه‌گذار</label>
-            <input type="text" id="holderBirthDateInput" placeholder="1379/01/23" />
-          </div>
-        </div>
-        <div class="field-row" style="margin-top:10px;">
-          <div class="field">
-            <label for="ownerNationalCodeInput">کد ملی مالک</label>
-            <input type="text" id="ownerNationalCodeInput" placeholder="مثال: 2300935521" />
-          </div>
-          <div class="field">
-            <label for="ownerBirthDateInput">تاریخ تولد مالک</label>
-            <input type="text" id="ownerBirthDateInput" placeholder="1367/02/07" />
-          </div>
-        </div>
-        <div class="form-actions">
-          <button class="primary" id="correctionBtn">صدور الحاقیه اصلاح مشخصات و ادامه</button>
-        </div>
-        <div id="correctionStatus" class="status"></div>
-      </div>
-    </div>
-
   </div>
 
   <div class="site-footer">developed by M.gh</div>
@@ -626,7 +567,6 @@ const TOKEN_STORAGE_KEY = 'panel-auth-token';
 const pageEl = document.getElementById('page');
 const userEmailLabel = document.getElementById('userEmailLabel');
 const userRolePill = document.getElementById('userRolePill');
-const adminCard = document.getElementById('adminCard');
 
 // این پنل لاگین ندارد؛ توکنی را که داشبورد (لاگین مستقل) ذخیره کرده می‌خواند.
 function getUserToken(){
@@ -655,7 +595,6 @@ async function onAuthenticated(){
   pageEl.classList.remove('hidden');
   userEmailLabel.textContent = me.username || '';
   userRolePill.textContent = me.role === 'admin' ? 'مدیر' : 'کاربر';
-  adminCard.classList.toggle('hidden', me.role !== 'admin');
 }
 onAuthenticated();
 
@@ -803,151 +742,6 @@ async function doSearch(){
 
 searchBtn.addEventListener('click', doSearch);
 policyInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
-const issuePolicyInput = document.getElementById('issuePolicyInput');
-const ownershipDateInput = document.getElementById('ownershipDateInput');
-const issueBtn = document.getElementById('issueBtn');
-const issueStatusEl = document.getElementById('issueStatus');
-const issueFileListEl = document.getElementById('issueFileList');
-
-const correctionPanel = document.getElementById('correctionPanel');
-const holderNationalCodeInput = document.getElementById('holderNationalCodeInput');
-const holderBirthDateInput = document.getElementById('holderBirthDateInput');
-const ownerNationalCodeInput = document.getElementById('ownerNationalCodeInput');
-const ownerBirthDateInput = document.getElementById('ownerBirthDateInput');
-const correctionBtn = document.getElementById('correctionBtn');
-const correctionStatusEl = document.getElementById('correctionStatus');
-
-async function doIssue(){
-  hideStatus(issueStatusEl);
-  issueFileListEl.innerHTML = '';
-  correctionPanel.style.display = 'none';
-  hideStatus(correctionStatusEl);
-  const policyNumber = issuePolicyInput.value.trim();
-  const ownershipTransferDate = ownershipDateInput.value.trim();
-
-  if (!policyNumber){
-    showStatus(issueStatusEl, 'error', 'شماره بیمه رو وارد کنید.');
-    return;
-  }
-  if (!ownershipTransferDate){
-    showStatus(issueStatusEl, 'error', 'تاریخ تغییر مالکیت رو وارد کنید.');
-    return;
-  }
-
-  issueBtn.disabled = true;
-  const originalText = issueBtn.textContent;
-  issueBtn.innerHTML = '<span class="spinner"></span>در حال صدور...';
-
-  try{
-    const resp = await fetch(API_BASE + '/api/endorsement/issue-discount-removal', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (await getUserToken()) },
-      body: JSON.stringify({ policyNumber, ownershipTransferDate }),
-    });
-
-    if (resp.status === 401){ showStatus(issueStatusEl, 'error', 'نشست شما معتبر نیست؛ لطفاً دوباره وارد شوید.'); authExpired(); return; }
-    if (resp.status === 403){ showStatus(issueStatusEl, 'error', 'فقط مدیر می‌تواند این الحاقیه را صادر کند.'); return; }
-    if (resp.status === 429){ showStatus(issueStatusEl, 'error', 'تعداد درخواست‌ها زیاده؛ کمی صبر کنید و دوباره تلاش کنید.'); return; }
-    if (resp.status === 400){ showStatus(issueStatusEl, 'error', 'شماره بیمه یا تاریخ وارد‌شده معتبر نیست.'); return; }
-    if (resp.status === 502){ showStatus(issueStatusEl, 'error', 'سامانه sales.iic.local در حال حاضر در دسترس نیست.'); return; }
-    if (resp.status === 501){ showStatus(issueStatusEl, 'error', 'این قابلیت هنوز روی سرور تکمیل نشده.'); return; }
-
-    if (resp.status === 409){
-      const errData = await resp.json().catch(() => ({}));
-      if (errData.error === 'person_mismatch'){
-        showStatus(issueStatusEl, 'error', 'اطلاعات مالک/بیمه‌گذار با استعلام ثبت‌احوال مطابقت ندارد.');
-        correctionPanel.style.display = 'block';
-        return;
-      }
-      if (errData.error === 'unique_code_pending'){
-        showStatus(issueStatusEl, 'error', 'الحاقیه اصلاح مشخصات مالک و بیمه گذار هنوز یکتا نگرفته است، لطفا بعدا مجدد تلاش کنید.');
-        return;
-      }
-      showStatus(issueStatusEl, 'error', 'درخواست به سامانه ارسال شد ولی پیام موفقیت تأیید نشد. قبل از تلاش دوباره، حتماً دستی توی پرتال بررسی کن که این الحاقیه از قبل صادر نشده باشه.');
-      return;
-    }
-
-    if (!resp.ok){ showStatus(issueStatusEl, 'error', 'خطایی رخ داد؛ دوباره تلاش کنید.'); return; }
-
-    const data = await resp.json();
-    if (!data.files || data.files.length === 0){
-      showStatus(issueStatusEl, 'success', 'الحاقیه صادر شد.');
-      return;
-    }
-
-    showStatus(issueStatusEl, 'success', 'الحاقیه حذف تخفیفات صادر شد.');
-    renderFiles(issueFileListEl, data.files);
-
-  } catch(err){
-    showStatus(issueStatusEl, 'error', 'ارتباط با سرور برقرار نشد.');
-  } finally {
-    issueBtn.disabled = false;
-    issueBtn.textContent = originalText;
-  }
-}
-
-async function doCorrection(){
-  hideStatus(correctionStatusEl);
-  const policyNumber = issuePolicyInput.value.trim();
-  const holderNationalCode = holderNationalCodeInput.value.trim();
-  const holderBirthDate = holderBirthDateInput.value.trim();
-  const ownerNationalCode = ownerNationalCodeInput.value.trim();
-  const ownerBirthDate = ownerBirthDateInput.value.trim();
-
-  const hasHolder = holderNationalCode && holderBirthDate;
-  const hasOwner = ownerNationalCode && ownerBirthDate;
-  if (!hasHolder && !hasOwner){
-    showStatus(correctionStatusEl, 'error', 'کد ملی و تاریخ تولد حداقل یکی از مالک یا بیمه‌گذار را وارد کنید.');
-    return;
-  }
-
-  correctionBtn.disabled = true;
-  const originalText = correctionBtn.textContent;
-  correctionBtn.innerHTML = '<span class="spinner"></span>در حال صدور...';
-
-  try{
-    const resp = await fetch(API_BASE + '/api/endorsement/issue-owner-correction', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (await getUserToken()) },
-      body: JSON.stringify({
-        policyNumber,
-        holderNationalCode, holderBirthDate,
-        ownerNationalCode, ownerBirthDate,
-      }),
-    });
-
-    if (resp.status === 401){ showStatus(correctionStatusEl, 'error', 'نشست شما معتبر نیست؛ لطفاً دوباره وارد شوید.'); authExpired(); return; }
-    if (resp.status === 403){ showStatus(correctionStatusEl, 'error', 'فقط مدیر می‌تواند این الحاقیه را صادر کند.'); return; }
-    if (resp.status === 429){ showStatus(correctionStatusEl, 'error', 'تعداد درخواست‌ها زیاده؛ کمی صبر کنید و دوباره تلاش کنید.'); return; }
-    if (resp.status === 400){ showStatus(correctionStatusEl, 'error', 'کد ملی یا تاریخ تولد وارد‌شده معتبر نیست.'); return; }
-    if (resp.status === 502){ showStatus(correctionStatusEl, 'error', 'سامانه sales.iic.local در حال حاضر در دسترس نیست.'); return; }
-
-    if (resp.status === 409){
-      const errData = await resp.json().catch(() => ({}));
-      if (errData.error === 'no_identity_change'){
-        showStatus(correctionStatusEl, 'error', 'استعلام ثبت‌احوال نشان داد نام ثبت‌شده فعلی درست است؛ نیازی به صدور این الحاقیه نیست.');
-        return;
-      }
-      showStatus(correctionStatusEl, 'error', 'درخواست ارسال شد ولی پیام موفقیت تأیید نشد. قبل از تلاش دوباره حتماً دستی توی پرتال بررسی کنید.');
-      return;
-    }
-
-    if (!resp.ok){ showStatus(correctionStatusEl, 'error', 'خطایی رخ داد؛ دوباره تلاش کنید.'); return; }
-
-    showStatus(correctionStatusEl, 'success', 'الحاقیه اصلاح مشخصات صادر شد. اکنون دوباره صدور الحاقیه حذف تخفیفات را تلاش می‌کنیم...');
-    correctionPanel.style.display = 'none';
-    await doIssue();
-
-  } catch(err){
-    showStatus(correctionStatusEl, 'error', 'ارتباط با سرور برقرار نشد.');
-  } finally {
-    correctionBtn.disabled = false;
-    correctionBtn.textContent = originalText;
-  }
-}
-
-issueBtn.addEventListener('click', doIssue);
-correctionBtn.addEventListener('click', doCorrection);
 </script>
 
 </body>
