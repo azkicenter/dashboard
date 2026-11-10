@@ -444,16 +444,31 @@ async function pingServer(){                          // gateway + سرویس ل
   try { const r = await fetch(API + '/auth/health', { cache: 'no-store' }); return r.ok; }
   catch(e) { return false; }
 }
-async function refreshConfig(){                       // آدرس تونل ممکن است عوض شده باشد: config.js را از شبکه می‌گیرد
-  try {                                               // ('reload' کش مرورگر را هم تازه می‌کند، پس پنل‌های داخل iframe هم آدرس جدید را می‌گیرند)
+const SB_URL = 'https://paokcjakxxjqtulibegi.supabase.co';
+const SB_KEY = 'sb_publishable_Us07X7VRGQ4q3jSIPzeT0g_8-qkLTeO';
+function applyBase(fresh){
+  fresh = fresh && fresh.replace(/\/+$/, '');
+  if (fresh && fresh !== API) {
+    window.APP_CONFIG = Object.assign({}, window.APP_CONFIG, { API_BASE: fresh });
+    API = fresh; AUTH = API + '/auth/api';
+    return true;
+  }
+  return false;
+}
+async function refreshConfig(){                       // آدرس تونل: اول از Supabase (فوری)، بعد config.js (پشتیبان)
+  try {
+    const r = await fetch(SB_URL + '/rest/v1/tunnel_config?select=api_base&id=eq.1',
+      { headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY }, cache: 'no-store' });
+    if (r.ok) {
+      const j = await r.json();
+      if (j[0] && j[0].api_base && /^https:\/\//.test(j[0].api_base)) { applyBase(j[0].api_base); return; }
+    }
+  } catch(e) {}
+  try {
     const r = await fetch('config.js', { cache: 'reload' });
     if (!r.ok) return;
     const m = (await r.text()).match(/API_BASE\s*:\s*["']([^"']+)["']/);
-    const fresh = m && m[1].replace(/\/+$/, '');
-    if (fresh && fresh !== API) {
-      window.APP_CONFIG = Object.assign({}, window.APP_CONFIG, { API_BASE: fresh });
-      API = fresh; AUTH = API + '/auth/api';
-    }
+    applyBase(m && m[1]);
   } catch(e) {}
 }
 function showDown(){
