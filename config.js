@@ -1,2 +1,2 @@
 // فایل خودکار — توسط supervisor.py ساخته می‌شود؛ دستی ویرایش نکن.
-window.APP_CONFIG = { API_BASE: "https://b64c1b31bac281.lhr.life" };
+window.APP_CONFIG = { API_BASE: "https://81af87510ce67e.lhr.life" };
