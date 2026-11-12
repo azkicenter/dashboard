@@ -320,8 +320,8 @@ const ICONS = {
 };
 const PANELS = [
   { id: 'tarikhche',   title: 'تاریخچه خوان', desc: 'محاسبه‌ی تخفیف قابل انتقال پلاک',            url: 'panels/tarikhche/index.html' },
-  { id: 'sanhab',      title: 'استعلام سنهاب', desc: 'استعلام بیمه‌نامه ثالث',                        url: 'https://azkicenter.github.io/sanhab/' },
-  { id: 'wallboard',   title: 'وال برد',        desc: 'وضعیت شرکت‌ها و رخدادها',                     url: 'https://azkicenter.github.io/wallboard/' },
+  { id: 'sanhab',      title: 'استعلام سنهاب', desc: 'استعلام بیمه‌نامه ثالث',                        url: '../sanhab/' },
+  { id: 'wallboard',   title: 'وال برد',        desc: 'وضعیت شرکت‌ها و رخدادها',                     url: '../wallboard/' },
   { id: 'endorsement', title: 'الحاقیه ایران',  desc: 'حذف تخفیفات و اصلاح مشخصات مالک/بیمه‌گذار', url: 'panels/endorsement/index.html' },
   { id: 'stats',       title: 'آمار درخواست‌ها', desc: 'تعداد درخواست‌ها در روزهای مختلف (فقط مدیر)', url: 'panels/stats/index.html', adminOnly: true },
 ];
@@ -352,18 +352,38 @@ const clearToken = () => {
 
 /* ---------- ورود یکپارچه‌ی سنهاب: همان نام کاربری/رمز داشبورد، یک‌بار پشت صحنه؛ اگر نشد، کاربر داخل تب سنهاب خودش وارد می‌شود ---------- */
 async function ssoSanhab(username, password){
+  const why = m => { try { console.warn('[sanhab-sso] ' + m); } catch(_){} };
   try {
     if (!username || !password) return;
-    const c = await fetch('https://azkicenter.github.io/sanhab/config.js?v=' + Date.now(), { cache: 'no-store' });
-    const m = (await c.text()).match(/API_BASE["']?\s*[:=]\s*["'`]([^"'`]*)["'`]/);
-    const base = m && m[1].replace(/\/+$/, ''); if (!base) return;
+    // آدرس سرور سنهاب: اول از Supabase (به‌روزتر)، بعد config.js
+    const txt = await (await fetch('../sanhab/config.js?v=' + Date.now(), { cache: 'no-store' })).text();
+    const g = k => { const m = txt.match(new RegExp(k + '["\']?\\s*[:=]\\s*["\'`]([^"\'`]*)["\'`]')); return m && m[1]; };
+    let base = '';
+    const sbu = g('SB_URL'), sbk = g('SB_KEY');
+    if (sbu && sbk) {
+      try {
+        const r = await fetch(sbu.replace(/\/+$/, '') + '/rest/v1/rpc/get_sanhab_api_base', { method: 'POST', cache: 'no-store',
+          headers: { apikey: sbk, Authorization: 'Bearer ' + sbk, 'Content-Type': 'application/json' }, body: '{}' });
+        const v = r.ok ? await r.json() : '';
+        if (typeof v === 'string' && /^https:\/\//.test(v)) base = v.replace(/\/+$/, '');
+      } catch(_) {}
+    }
+    if (!base) base = (g('API_BASE') || '').replace(/\/+$/, '');
+    if (!base) { why('API_BASE not found'); return; }
     const u = username.trim().replace(/\s+/g, '_');
-    const r = await fetch(base + '/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, code: password }) });
-    if (!r.ok) return;
-    const d = await r.json();
-    if (d.token) { localStorage.setItem('sanhab-auth-token', d.token); localStorage.setItem('sanhab-auth-user', d.user); localStorage.setItem('sanhab-last-user', d.user); }
+    let d = null;
+    for (let i = 0; i < 3 && !d; i++) {            // تونل گاهی در اولین درخواست جواب نمی‌دهد
+      try {
+        const r = await fetch(base + '/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, code: password }) });
+        if (r.ok) d = await r.json();
+        else { why('login HTTP ' + r.status + ' (user: ' + u + ')'); if (r.status < 500) return; }
+      } catch(e) { why('network: ' + e); }
+      if (!d) await new Promise(res => setTimeout(res, 1500));
+    }
+    if (!d || !d.token) return;
+    localStorage.setItem('sanhab-auth-token', d.token); localStorage.setItem('sanhab-auth-user', d.user); localStorage.setItem('sanhab-last-user', d.user);
     const f = viewport.querySelector('iframe[data-id="sanhab"]'); if (f) f.src = f.src;   // اگر تب قبلاً باز شده بود، با نشست جدید دوباره بارگذاری شود
-  } catch(e) {}
+  } catch(e) { why('error: ' + e); }
 }
 
 /* ---------- تم ---------- */
