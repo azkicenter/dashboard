@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <title>داشبورد عملیات</title>
+<meta name="theme-color" content="#dff0ff">   <!-- رنگ نوار مرورگر؛ با تم صفحه عوض می‌شود -->
 <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
 <link rel="icon" type="image/png" sizes="64x64" href="assets/favicon-64.png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
@@ -15,6 +16,7 @@
     try {
       var t = localStorage.getItem('tarikhcheTheme') === 'dark' ? 'dark' : 'light';
       document.documentElement.setAttribute('data-theme', t);
+      var m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute('content', t === 'dark' ? '#0c1226' : '#dff0ff');
     } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
   })();
 </script>
@@ -408,6 +410,7 @@ $('themeBtn').addEventListener('click', () => {
   const next = currentTheme() === 'dark' ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', next);
   try { localStorage.setItem(THEME_KEY, next); } catch(e){}
+  const tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute('content', next === 'dark' ? '#0c1226' : '#dff0ff');
   viewport.querySelectorAll('iframe').forEach(syncFrameTheme);
 });
 
