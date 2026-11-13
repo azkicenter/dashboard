@@ -173,6 +173,16 @@
   .discount-box .dlabel { color: var(--ink-soft); font-weight: 600; }
   .discount-box .dval { color: var(--accent-strong); font-weight: 700; }
   .hint.center { text-align: center; margin: -4px 0 10px; }
+  .build-btn { display: block; margin: 6px auto 0; padding: 10px 22px; border: 0; border-radius: var(--radius-sm); background: linear-gradient(135deg, var(--accent), var(--accent-deep)); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+  .pick-list { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+  .pick-group { font-size: .78rem; color: var(--ink-soft); margin-top: 6px; }
+  .pick-item { display: flex; gap: 10px; align-items: flex-start; border: 1.5px solid var(--line); border-radius: var(--radius-sm); padding: 9px 12px; background: var(--surface-tint); cursor: pointer; font-size: .82rem; line-height: 1.8; }
+  .pick-item.sel { border-color: var(--accent); background: var(--accent-soft); }
+  .pick-item input { margin-top: 6px; width: auto; }
+  .pick-item .pn { direction: ltr; unicode-bidi: plaintext; font-weight: 700; }
+  .pct-row { display: flex; gap: 10px; margin: 8px 0 12px; }
+  .pct-row label { flex: 1; font-size: .78rem; color: var(--ink-soft); }
+  .pct-row input { text-align: center; margin-top: 4px; }
   .info-row { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-bottom: 14px; text-align: center; }
   .script-title { font-size: .9rem; font-weight: 700; margin: 14px 0 8px; color: var(--ink); text-align: center; }
   .info-row .kv { margin: 0; font-size: 1.05rem; }
@@ -443,6 +453,61 @@ const discountBox = (title, years, pct) => {
   return b;
 };
 
+// ---------- ساخت اسکریپت دستی (برای حالت «نیاز به بررسی کارشناس») ----------
+function scriptBuilder(r) {
+  const wrap = el("div");
+  wrap.append(el("div", "hint center", "بیمه‌نامه‌ای را که بعد از بررسی مبنای انتقال است انتخاب کنید."));
+  const list = el("div", "pick-list"), out = el("div");
+  const items = [];
+  (r.cars || []).forEach(car => (car.policies || []).forEach(p => {
+    if (p.endorsement) return;
+    const pct = Number(p.discount_percent);
+    if (!(pct > 0) && !(Number(p.driver_discount_percent) > 0)) return;
+    items.push({car, p});
+  }));
+  items.sort((a, b) => (a.car.chassis === b.car.chassis ? String(b.p.start).localeCompare(String(a.p.start))
+                                                         : String(a.car.chassis).localeCompare(String(b.car.chassis))));
+  if (!items.length) { wrap.append(el("div", "hint center", "بیمه‌نامه‌ی دارای تخفیف پیدا نشد؛ قابل انتقال نیست.")); return wrap; }
+
+  let lastChassis = null;
+  items.forEach(({car, p}, i) => {
+    if (car.chassis !== lastChassis) { list.append(el("div", "pick-group", "شاسی " + val(car.chassis))); lastChassis = car.chassis; }
+    const row = el("label", "pick-item"), radio = document.createElement("input");
+    radio.type = "radio"; radio.name = "pickPolicy";
+    const body = el("div");
+    body.append(el("span", "pn", val(p.number)), document.createTextNode(` — ${val(p.company)} — ${fmtDate(p.start)} تا ${fmtDate(p.end)}`
+      + ` — ثالث ${val(p.discount_percent)}٪، راننده ${val(p.driver_discount_percent)}٪` + (p.expired ? "" : " — جاری")));
+    row.append(radio, body); list.append(row);
+    radio.onchange = () => { list.querySelectorAll(".pick-item").forEach(x => x.classList.remove("sel")); row.classList.add("sel"); showScript(car, p); };
+  });
+
+  function showScript(car, p) {
+    out.textContent = "";
+    const third = el("input"), drv = el("input");
+    [third, drv].forEach(x => { x.type = "number"; x.min = 0; x.max = 70; x.step = 5; x.inputMode = "numeric"; });
+    third.value = Number(p.discount_percent) || 0; drv.value = Number(p.driver_discount_percent ?? p.discount_percent) || 0;
+    const mk = (t, inp) => { const l = el("label", "", t); l.append(inp); return l; };
+    const row = el("div", "pct-row"); row.append(mk("درصد تخفیف ثالث", third), mk("درصد تخفیف راننده", drv));
+    const build = () => {
+      const t = Math.max(0, Math.min(70, Number(third.value) || 0)), d = Math.max(0, Math.min(70, Number(drv.value) || 0));
+      return buildAnnouncement({years: t / 5, percent: t, driver_years: d / 5, driver_percent: d,
+        policy_number: p.number, best_chassis: car.chassis,
+        endorsement_policies: p.expired ? [] : [p.number], short_term_notice: ""});
+    };
+    const box = el("div", "announce-text"); const txt = el("span"); const copy = el("button", "", "کپی");
+    const refresh = () => { txt.textContent = build(); };
+    third.oninput = drv.oninput = refresh; refresh();
+    copy.onclick = () => navigator.clipboard.writeText(txt.textContent).then(() => {
+      copy.textContent = "کپی شد"; copy.classList.add("copied");
+      setTimeout(() => { copy.textContent = "کپی"; copy.classList.remove("copied"); }, 1200);
+    }).catch(() => {});
+    box.append(txt, copy);
+    out.append(row, box, el("div", "hint center", "درصدها از بیمه‌نامه‌ی انتخاب‌شده پر شده‌اند و در صورت نیاز قابل ویرایش‌اند؛ سال تخفیف از روی درصد (هر ۵٪ = یک سال) محاسبه می‌شود."));
+  }
+  wrap.append(list, out);
+  return wrap;
+}
+
 function announceCard(r, data) {
   const card = el("div", "panel");
 
@@ -470,15 +535,29 @@ function announceCard(r, data) {
   }
   // وقتی تخفیف قابل انتقال نیست فقط همین کادر اسکریپت انتقالی با متن «تخفیف قابل انتقال ندارد» نمایش داده می‌شود
 
-  // متن قابل کپی
-  card.append(el("div", "script-title", "اسکریپت انتقالی"));
-  const box = el("div", "announce-text"); const txt = el("span"); const copy = el("button", "", "کپی");
-  txt.textContent = buildAnnouncement(r);
-  copy.onclick = () => navigator.clipboard.writeText(txt.textContent).then(() => {
-    copy.textContent = "کپی شد"; copy.classList.add("copied");
-    setTimeout(() => { copy.textContent = "کپی"; copy.classList.remove("copied"); }, 1200);
-  }).catch(() => {});
-  box.append(txt, copy); card.append(box);
+  const copyBox = txtFn => {
+    const box = el("div", "announce-text"); const txt = el("span"); const copy = el("button", "", "کپی");
+    txt.textContent = txtFn();
+    copy.onclick = () => navigator.clipboard.writeText(txt.textContent).then(() => {
+      copy.textContent = "کپی شد"; copy.classList.add("copied");
+      setTimeout(() => { copy.textContent = "کپی"; copy.classList.remove("copied"); }, 1200);
+    }).catch(() => {});
+    box.append(txt, copy);
+    return {box, txt};
+  };
+
+  if (data.status === "ok") {
+    // قطعی: متن قابل کپی
+    card.append(el("div", "script-title", "اسکریپت انتقالی"));
+    card.append(copyBox(() => buildAnnouncement(r)).box);
+  } else {
+    // نیاز به بررسی کارشناس: اسکریپت خودکار ساخته نمی‌شود؛ کارشناس بعد از بررسی، بیمه‌نامه/شاسی را انتخاب می‌کند
+    if (!noDiscount) card.append(el("div", "hint center", "این مقادیر محاسبه‌ی سیستم است و قطعی نیست."));
+    const holder = el("div");
+    const btn = el("button", "build-btn", "ساخت اسکریپت انتقالی (پس از بررسی کارشناس)"); btn.type = "button";
+    btn.onclick = () => { btn.remove(); holder.append(scriptBuilder(r)); };
+    card.append(el("div", "script-title", "اسکریپت انتقالی"), btn, holder);
+  }
 
   return card;
 }
