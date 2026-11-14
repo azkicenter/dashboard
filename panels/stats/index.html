@@ -116,7 +116,9 @@
 <div class="tip" id="tip"></div>
 
 <script>
-const API = ((window.APP_CONFIG && window.APP_CONFIG.API_BASE) || '').replace(/\/+$/, '');
+// آدرس تونل: اول از صفحه‌ی اصلی (که از Supabase تازه می‌شود)، بعد config.js
+let _pb = ''; try { if (window.parent !== window && window.parent.APP_CONFIG) _pb = window.parent.APP_CONFIG.API_BASE || ''; } catch (e) {}
+const API = (_pb || (window.APP_CONFIG && window.APP_CONFIG.API_BASE) || '').replace(/\/+$/, '');
 const TOKEN_KEY = 'panel-auth-token';
 const PANEL_FA = { estelam: 'استعلام', tarikhche: 'تاریخچه خوان', endorsement: 'الحاقیه', login: 'تلاش ورود' };
 const PANEL_COLOR = { estelam: '#17A9FF', tarikhche: '#7C5CE0', endorsement: '#1FA971', login: '#E08A17' };

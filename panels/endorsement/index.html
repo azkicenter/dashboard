@@ -560,8 +560,10 @@
 
 <script src="../../config.js"></script>
 <script>
-const API_BASE = ((window.APP_CONFIG&&window.APP_CONFIG.API_BASE)||'').replace(/\/+$/,'') + '/endorsement';
-const AUTH_BASE = ((window.APP_CONFIG&&window.APP_CONFIG.API_BASE)||'').replace(/\/+$/,'') + '/auth';   // سرویس لاگین مستقل
+let _pb=''; try{ if(window.parent!==window&&window.parent.APP_CONFIG) _pb=window.parent.APP_CONFIG.API_BASE||''; }catch(e){}
+const _BASE=(_pb||(window.APP_CONFIG&&window.APP_CONFIG.API_BASE)||'');
+const API_BASE = (_BASE).replace(/\/+$/,'') + '/endorsement';
+const AUTH_BASE = (_BASE).replace(/\/+$/,'') + '/auth';   // سرویس لاگین مستقل
 const TOKEN_STORAGE_KEY = 'panel-auth-token';
 
 const pageEl = document.getElementById('page');
